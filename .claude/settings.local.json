@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/jeonghyunyoo/Documents/Project/StudyCafe -type f -name \"Makefile\" -o -name \"makefile\" -o -name \".env*\" 2>/dev/null | head -20)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
