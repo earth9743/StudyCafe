@@ -1,16 +1,59 @@
-# kagong_map
+# Kagong Map (카공지도)
 
-A real-time information sharing platform for 'Kagong' (studying at cafes) culture, providing crowd levels and outlet availability.
+Students and remote workers finding the perfect cafe to study — with real-time crowd levels, outlet availability, and noise monitoring.
+
+## Features
+
+- Real-time crowd level tracking
+- Power outlet availability info
+- Noise level monitoring
+- User reviews and ratings
+- Naver Maps integration for nearby cafe discovery
+
+## Tech Stack
+
+- **Framework:** Flutter (Android, iOS, Web)
+- **Backend:** Firebase (Firestore, Auth, Storage)
+- **Maps:** Naver Maps SDK (`flutter_naver_map`)
+- **State Management:** Riverpod
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK (stable channel)
+- Android Studio / Xcode
+- Firebase project configured
+- Naver Cloud Platform Client ID
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+# Clone the repository
+git clone https://github.com/earth9743/StudyCafe.git
+cd StudyCafe
+
+# Install dependencies
+flutter pub get
+
+# Run the app
+flutter run
+```
+
+## Build
+
+```bash
+flutter build apk    # Android
+flutter build ios    # iOS
+flutter build web    # Web
+```
+
+## Project Structure
+
+```
+lib/
+  main.dart          # App entry point
+android/             # Android native configuration
+ios/                 # iOS native configuration
+test/                # Widget & unit tests
+```
