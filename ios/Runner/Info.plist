@@ -45,5 +45,31 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Naver Map SDK Client ID -->
+	<key>NMFClientId</key>
+	<string>df7ggcsnru</string>
+	<!-- Location Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>카공지도에서 주변 카페를 찾기 위해 위치 정보가 필요합니다.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>카공지도에서 주변 카페를 찾기 위해 위치 정보가 필요합니다.</string>
+	<!-- Kakao Login URL Scheme -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao1ef45814fc3792ec33ea0e7368ff1ada</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaoplus</string>
+	</array>
 </dict>
 </plist>
