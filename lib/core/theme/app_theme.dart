@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_text_styles.dart';
@@ -21,6 +22,30 @@ class AppTheme {
         onSurface: AppColors.textPrimary,
         error: AppColors.error,
         onError: AppColors.textOnPrimary,
+      ),
+
+      // Cupertino override for iOS text selection / IME composition highlight.
+      // On iOS, CupertinoThemeData.primaryColor controls:
+      //   1. The composing underline color during Korean (Hangul) IME input.
+      //   2. The tint color of text fields, which can turn composing text blue.
+      // Setting primaryColor to textPrimary (#1A202C) ensures the composing
+      // text blends with normal input text instead of appearing bright-blue.
+      cupertinoOverrideTheme: CupertinoThemeData(
+        primaryColor: AppColors.textPrimary,
+        // Explicitly set text styles so iOS never falls back to its default
+        // blue tint for any text rendering inside Cupertino-styled widgets.
+        textTheme: CupertinoTextThemeData(
+          textStyle: const TextStyle(color: AppColors.textPrimary),
+          actionTextStyle: TextStyle(color: AppColors.primary),
+          tabLabelTextStyle: const TextStyle(color: AppColors.textPrimary),
+        ),
+      ),
+
+      // Text Selection
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.primary,
+        selectionColor: Colors.grey.withValues(alpha: 0.2),
+        selectionHandleColor: AppColors.primary,
       ),
 
       // AppBar

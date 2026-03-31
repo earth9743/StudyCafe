@@ -22,4 +22,12 @@ class AppConstants {
 
   // 카카오 네이티브 앱 키
   static const String kakaoNativeKey = '1ef45814fc3792ec33ea0e7368ff1ada';
+
+  // 네이버 클라우드 플랫폼 API 키 (지도 SDK용)
+  static const String ncpClientId = 'df7ggcsnru';
+  static const String ncpClientSecret = 'bCGCLGCfz9uvug7sD1w91JD4au8J6RiJX1blZXaz';
+
+  // 네이버 개발자 센터 API 키 (검색 API용)
+  static const String naverClientId = '97yJY1Teft5Q98NhkzVk';
+  static const String naverClientSecret = 'Tpm6LIoRGs';
 }

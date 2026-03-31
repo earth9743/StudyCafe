@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:kagong_map/core/constants/firestore_paths.dart';
@@ -25,15 +26,22 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<UserCredential> signInWithGoogle() async {
-    final googleSignIn = GoogleSignIn.instance;
-    await googleSignIn.initialize();
-    final googleUser = await googleSignIn.authenticate();
+    debugPrint('[GoogleAuth] 구글 로그인 시작');
+    final googleSignIn = GoogleSignIn();
+    final googleUser = await googleSignIn.signIn();
 
-    final googleAuth = googleUser.authentication;
+    if (googleUser == null) {
+      throw Exception('user_canceled: 구글 로그인이 취소되었습니다.');
+    }
+
+    debugPrint('[GoogleAuth] 구글 사용자: ${googleUser.email}');
+    final googleAuth = await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
 
+    debugPrint('[GoogleAuth] Firebase 인증 시도');
     final userCredential = await _auth.signInWithCredential(credential);
 
     if (userCredential.additionalUserInfo?.isNewUser ?? false) {
@@ -43,32 +51,43 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
+    debugPrint('[GoogleAuth] 로그인 성공: ${userCredential.user?.uid}');
     return userCredential;
   }
 
   @override
   Future<UserCredential> signInWithKakao() async {
     // 카카오톡 설치 여부에 따라 로그인 방식 분기
+    debugPrint('[KakaoAuth] 카카오 로그인 시작');
     if (await kakao.isKakaoTalkInstalled()) {
+      debugPrint('[KakaoAuth] 카카오톡 앱으로 로그인');
       await kakao.UserApi.instance.loginWithKakaoTalk();
     } else {
+      debugPrint('[KakaoAuth] 카카오 계정(웹)으로 로그인');
       await kakao.UserApi.instance.loginWithKakaoAccount();
     }
 
     // 카카오 사용자 정보 조회
+    debugPrint('[KakaoAuth] 카카오 사용자 정보 조회');
     final kakaoUser = await kakao.UserApi.instance.me();
+    debugPrint('[KakaoAuth] 카카오 사용자 ID: ${kakaoUser.id}');
 
     final email = kakaoUser.kakaoAccount?.email ?? '${kakaoUser.id}@kakao.user';
     final password = 'kakao_${kakaoUser.id}_secure_password';
+    debugPrint('[KakaoAuth] Firebase 로그인 이메일: $email');
 
     UserCredential userCredential;
     try {
+      debugPrint('[KakaoAuth] Firebase signIn 시도');
       userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      debugPrint('[KakaoAuth] Firebase signIn 성공');
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found') {
+      debugPrint('[KakaoAuth] FirebaseAuthException: ${e.code} - ${e.message}');
+      if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+        debugPrint('[KakaoAuth] 신규 사용자 - Firebase 계정 생성');
         userCredential = await _auth.createUserWithEmailAndPassword(
           email: email,
           password: password,
@@ -82,6 +101,7 @@ class AuthRepositoryImpl implements AuthRepository {
           displayName: kakaoUser.kakaoAccount?.profile?.nickname,
           photoUrl: kakaoUser.kakaoAccount?.profile?.thumbnailImageUrl,
         );
+        debugPrint('[KakaoAuth] 신규 사용자 생성 완료');
       } else {
         rethrow;
       }
@@ -94,7 +114,7 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> signOut() async {
     await _auth.signOut();
     try {
-      await GoogleSignIn.instance.signOut();
+      await GoogleSignIn().signOut();
     } catch (_) {}
     try {
       await kakao.UserApi.instance.logout();

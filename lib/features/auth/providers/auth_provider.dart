@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kagong_map/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:kagong_map/features/auth/domain/models/user_model.dart';
@@ -39,18 +40,28 @@ class AuthController extends Notifier<AsyncValue<void>> {
 
   Future<void> signInWithGoogle() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final authRepo = ref.read(authRepositoryProvider);
       await authRepo.signInWithGoogle();
-    });
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('[AuthController] 구글 로그인 에러: $e');
+      debugPrint('[AuthController] 스택트레이스: $st');
+      state = AsyncValue.error(e, st);
+    }
   }
 
   Future<void> signInWithKakao() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final authRepo = ref.read(authRepositoryProvider);
       await authRepo.signInWithKakao();
-    });
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('[AuthController] 카카오 로그인 에러: $e');
+      debugPrint('[AuthController] 스택트레이스: $st');
+      state = AsyncValue.error(e, st);
+    }
   }
 
   Future<void> signOut() async {

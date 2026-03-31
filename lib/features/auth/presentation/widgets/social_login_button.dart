@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kagong_map/core/theme/app_colors.dart';
 import 'package:kagong_map/core/theme/app_text_styles.dart';
 
@@ -24,8 +25,10 @@ class SocialLoginButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isKakao ? AppColors.kakaoYellow : AppColors.googleWhite,
-          foregroundColor: isKakao ? AppColors.kakaoBlack : AppColors.textPrimary,
+          backgroundColor:
+              isKakao ? AppColors.kakaoYellow : AppColors.googleWhite,
+          foregroundColor:
+              isKakao ? AppColors.kakaoBlack : AppColors.textPrimary,
           elevation: isKakao ? 0 : 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -37,16 +40,19 @@ class SocialLoginButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isKakao ? Icons.chat_bubble : Icons.g_mobiledata,
-              size: isKakao ? 20 : 28,
-              color: isKakao ? AppColors.kakaoBlack : null,
+            SvgPicture.asset(
+              isKakao
+                  ? 'assets/icons/kakao_logo.svg'
+                  : 'assets/icons/google_logo.svg',
+              width: isKakao ? 22 : 24,
+              height: isKakao ? 22 : 24,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Text(
-              isKakao ? '카카오로 시작하기' : 'Google로 시작하기',
+              isKakao ? '카카오 로그인' : 'Google로 시작하기',
               style: AppTextStyles.labelLarge.copyWith(
                 color: isKakao ? AppColors.kakaoBlack : AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

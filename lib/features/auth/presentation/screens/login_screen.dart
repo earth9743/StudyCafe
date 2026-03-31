@@ -5,6 +5,37 @@ import 'package:kagong_map/core/theme/app_text_styles.dart';
 import 'package:kagong_map/features/auth/providers/auth_provider.dart';
 import 'package:kagong_map/features/auth/presentation/widgets/social_login_button.dart';
 
+/// 에러 메시지를 사용자 친화적 메시지로 변환
+/// 사용자가 직접 취소한 경우 null 반환 (표시하지 않음)
+String? _getUserFriendlyMessage(String error) {
+  final lower = error.toLowerCase();
+
+  // 사용자가 로그인을 직접 취소한 경우 → 무시
+  if (lower.contains('canceled') ||
+      lower.contains('cancelled') ||
+      lower.contains('user canceled') ||
+      lower.contains('user_canceled') ||
+      lower.contains('access_denied')) {
+    return null;
+  }
+
+  if (lower.contains('network') || lower.contains('socket')) {
+    return '네트워크 연결을 확인해 주세요';
+  }
+  if (lower.contains('timeout')) {
+    return '요청 시간이 초과되었습니다. 다시 시도해 주세요';
+  }
+  if (lower.contains('account-exists') ||
+      lower.contains('already in use')) {
+    return '이미 다른 방법으로 가입된 계정입니다';
+  }
+  if (lower.contains('credential')) {
+    return '인증 정보가 유효하지 않습니다. 다시 시도해 주세요';
+  }
+
+  return '로그인에 실패했습니다. 잠시 후 다시 시도해 주세요';
+}
+
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
@@ -15,10 +46,37 @@ class LoginScreen extends ConsumerWidget {
 
     ref.listen<AsyncValue<void>>(authControllerProvider, (prev, next) {
       if (next is AsyncError) {
+        final message = _getUserFriendlyMessage(next.error.toString());
+        // 사용자가 직접 취소한 경우 에러를 표시하지 않음
+        if (message == null) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('로그인 실패: ${next.error}'),
-            backgroundColor: AppColors.error,
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  color: AppColors.textOnPrimary,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textOnPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            duration: const Duration(seconds: 3),
           ),
         );
       }

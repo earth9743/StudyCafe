@@ -4,13 +4,17 @@ import 'package:kagong_map/features/auth/providers/auth_provider.dart';
 import 'package:kagong_map/features/auth/presentation/screens/login_screen.dart';
 import 'package:kagong_map/features/auth/presentation/screens/agreement_screen.dart';
 import 'package:kagong_map/features/map/presentation/screens/map_screen.dart';
+import 'package:kagong_map/features/splash/presentation/screens/splash_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) {
+      // 스플래시 화면은 리다이렉트 제외
+      if (state.matchedLocation == '/splash') return null;
+
       final isLoggedIn = authState.value != null;
       final isOnLogin = state.matchedLocation == '/login';
 
@@ -19,6 +23,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),

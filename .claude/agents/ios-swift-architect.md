@@ -1,7 +1,7 @@
 ---
 name: ios-swift-architect
 description: "Use this agent when you need to architect, develop, or maintain a native iOS application using Swift and SwiftUI. This includes feature development, component creation, state management decisions, architecture planning, and code quality reviews.\\n\\n<example>\\nContext: User wants to build a new iOS feature.\\nuser: \"I need a user profile screen that shows the user's avatar, name, and recent activity list\"\\nassistant: \"I'll use the ios-swift-architect agent to design and implement this feature\"\\n<commentary>\\nSince the user is requesting iOS UI development, use the ios-swift-architect agent to architect and build the SwiftUI component with proper state management and the Sophisticated Navy design system.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User needs help with app architecture decisions.\\nuser: \"How should I structure the data flow between my home screen and detail views?\"\\nassistant: \"Let me engage the ios-swift-architect agent to analyze and propose an architecture for this\"\\n<commentary>\\nArchitecture and data flow decisions in a SwiftUI app are core responsibilities of the ios-swift-architect agent.\\n</commentary>\\n</example>\\n\\n<example>\\nContext: User has just written a new SwiftUI view and wants it reviewed.\\nuser: \"I just finished building the settings screen, can you review it?\"\\nassistant: \"I'll use the ios-swift-architect agent to review your newly written settings screen for code quality, HIG compliance, and design system adherence\"\\n<commentary>\\nCode review of recently written iOS code is a perfect use case for this agent.\\n</commentary>\\n</example>"
-model: sonnet
+model: opus
 color: orange
 memory: project
 ---

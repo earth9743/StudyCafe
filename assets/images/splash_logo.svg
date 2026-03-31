@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="innerCircleClip">
+      <circle cx="256" cy="185" r="85"/>
+    </clipPath>
+  </defs>
+
+  <!-- Location Pin - outer circle -->
+  <circle cx="256" cy="185" r="122" fill="white"/>
+  <!-- Pin point triangle -->
+  <polygon points="185,250 256,370 327,250" fill="white"/>
+  <!-- Inner circle (navy) -->
+  <circle cx="256" cy="185" r="85" fill="#19376D"/>
+
+  <!-- Coffee cup group (inside navy circle) -->
+  <g fill="white">
+    <!-- Cup body -->
+    <path d="M210,175 L302,175 L292,220 L220,220 Z" fill="white"/>
+    <!-- Cup handle -->
+    <ellipse cx="310" cy="197" rx="14" ry="18" fill="white"/>
+    <ellipse cx="310" cy="197" rx="7" ry="10" fill="#19376D"/>
+    <!-- Saucer line -->
+    <rect x="205" y="224" width="102" height="6" rx="3" fill="white"/>
+
+    <!-- Steam lines -->
+    <path d="M235,168 Q238,158 235,148 Q232,138 235,128" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M256,168 Q259,158 256,148 Q253,138 256,128" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M277,168 Q280,158 277,148 Q274,138 277,128" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Text: 카공지도 -->
+  <text x="256" y="420" text-anchor="middle" font-family="'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif" font-weight="800" font-size="56" fill="white" letter-spacing="4">카공지도</text>
+
+  <!-- Subtitle -->
+  <text x="256" y="460" text-anchor="middle" font-family="'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif" font-weight="400" font-size="22" fill="rgba(200,210,230,0.8)">나만의 카공 스팟을 찾아보세요</text>
+</svg>
