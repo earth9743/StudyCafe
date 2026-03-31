@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kagong_map/features/cafe/domain/models/review_model.dart';
@@ -44,6 +47,35 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() => const AsyncValue.data(null);
 
+  /// 선택된 이미지 파일들을 Firebase Storage에 업로드하고 다운로드 URL 목록을 반환한다.
+  Future<List<String>> _uploadImages({
+    required String cafeId,
+    required String userId,
+    required List<File> imageFiles,
+  }) async {
+    if (imageFiles.isEmpty) return const [];
+
+    final storage = FirebaseStorage.instance;
+    final urls = <String>[];
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    for (var i = 0; i < imageFiles.length; i++) {
+      final ref = storage
+          .ref()
+          .child('reviews/$cafeId/$userId/${timestamp}_$i.jpg');
+
+      final uploadTask = await ref.putFile(
+        imageFiles[i],
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      final url = await uploadTask.ref.getDownloadURL();
+      urls.add(url);
+    }
+
+    return urls;
+  }
+
   Future<bool> submitReview({
     required String cafeId,
     required int rating,
@@ -51,6 +83,7 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
     required OutletLevel outletLevel,
     required NoiseLevel noiseLevel,
     required String content,
+    List<File> imageFiles = const [],
   }) async {
     state = const AsyncValue.loading();
 
@@ -60,6 +93,13 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
         state = AsyncValue.error('로그인이 필요합니다', StackTrace.current);
         return false;
       }
+
+      // 이미지 업로드
+      final photoUrls = await _uploadImages(
+        cafeId: cafeId,
+        userId: user.uid,
+        imageFiles: imageFiles,
+      );
 
       final reviewData = ReviewModel(
         id: '',
@@ -71,16 +111,16 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
         outletLevel: outletLevel,
         noiseLevel: noiseLevel,
         content: content,
+        photoUrls: photoUrls,
         createdAt: DateTime.now(),
       );
 
-      // userId를 문서 ID로 사용하여 동일 사용자의 중복 리뷰 방지
+      // 자동 생성 ID로 리뷰를 누적 저장 (동일 사용자도 여러 리뷰 가능)
       await FirebaseFirestore.instance
           .collection('cafes')
           .doc(cafeId)
           .collection('reviews')
-          .doc(user.uid)
-          .set(reviewData.toJson());
+          .add(reviewData.toJson());
 
       state = const AsyncValue.data(null);
       return true;

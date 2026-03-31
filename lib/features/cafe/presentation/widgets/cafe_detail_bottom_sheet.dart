@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:kagong_map/core/theme/app_colors.dart';
 import 'package:kagong_map/core/theme/app_text_styles.dart';
-import 'package:kagong_map/features/cafe/domain/models/naver_place_model.dart';
+import 'package:kagong_map/features/auth/providers/auth_provider.dart';
+import 'package:kagong_map/features/cafe/domain/models/cafe_place_model.dart';
 import 'package:kagong_map/features/cafe/domain/models/review_model.dart';
 import 'package:kagong_map/features/cafe/providers/review_provider.dart';
 import 'package:kagong_map/features/cafe/presentation/widgets/review_write_sheet.dart';
 
 /// 카페 상세 정보 Bottom Sheet
+/// - compact: 마커 탭 → 카페 이름 + 주소 + 전화 + 상태 (콘텐츠 크기에 딱 맞게)
+/// - full: 검색 선택 or 컴팩트에서 "자세히 보기" → 리뷰 포함 전체
 class CafeDetailBottomSheet extends ConsumerWidget {
-  final NaverPlaceModel place;
+  final CafePlaceModel place;
+  final bool compact;
 
-  const CafeDetailBottomSheet({super.key, required this.place});
+  const CafeDetailBottomSheet({
+    super.key,
+    required this.place,
+    this.compact = false,
+  });
 
   String get _cafeId => generateCafeId(place.name, place.lat, place.lng);
 
-  /// Bottom Sheet를 표시하는 정적 메서드
-  static void show(BuildContext context, NaverPlaceModel place) {
+  /// 검색에서 선택 시: 전체 (리뷰 포함)
+  static void show(BuildContext context, CafePlaceModel place) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -27,72 +36,157 @@ class CafeDetailBottomSheet extends ConsumerWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final stats = ref.watch(cafeReviewStatsProvider(_cafeId));
-    final reviewsAsync = ref.watch(cafeReviewsProvider(_cafeId));
-
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 드래그 핸들
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.secondaryDark,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 카페 이름 + 카테고리
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  // 주소
-                  _buildInfoRow(Icons.place_outlined, _displayAddress),
-                  if (place.phone.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildPhoneRow(),
-                  ],
-                  const SizedBox(height: 20),
-                  // 혼잡도 / 콘센트 / 소음 (리뷰 평균)
-                  _buildStatusSection(stats),
-                  const SizedBox(height: 16),
-                  // 별점 요약 + 리뷰 작성 버튼
-                  _buildRatingSummary(context, stats),
-                  const SizedBox(height: 16),
-                  // 리뷰 목록
-                  _buildReviewList(reviewsAsync),
-                  const SizedBox(height: 20),
-                  // 길찾기 버튼
-                  _buildDirectionsButton(context),
-                  SizedBox(
-                      height: MediaQuery.of(context).padding.bottom + 8),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+  /// 마커 탭 시: 컴팩트 (콘텐츠에 딱 맞게)
+  static void showCompact(BuildContext context, CafePlaceModel place) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CafeDetailBottomSheet(place: place, compact: true),
     );
   }
 
   String get _displayAddress =>
       place.roadAddress.isNotEmpty ? place.roadAddress : place.address;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(cafeReviewStatsProvider(_cafeId));
+    final reviewsAsync = ref.watch(cafeReviewsProvider(_cafeId));
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      // 전체 모드일 때만 최대 높이 제한 (스크롤 가능)
+      constraints: compact
+          ? null
+          : BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: compact
+          ? _buildCompactContent(context, ref, stats, bottomPadding)
+          : _buildFullContent(
+              context, ref, stats, reviewsAsync, bottomPadding),
+    );
+  }
+
+  /// 컴팩트 모드: 콘텐츠 크기에 딱 맞게 (Wrap 방식)
+  Widget _buildCompactContent(
+    BuildContext context,
+    WidgetRef ref,
+    CafeReviewStats stats,
+    double bottomPadding,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildDragHandle(),
+        Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 14),
+              _buildInfoRow(Icons.place_outlined, _displayAddress),
+              if (place.phone.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                _buildPhoneRow(),
+              ],
+              const SizedBox(height: 16),
+              _buildStatusSection(stats),
+              const SizedBox(height: 12),
+              // 자세히 보기 버튼
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    show(context, place);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    '자세히 보기',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 전체 모드: 스크롤 가능, 리뷰 포함
+  Widget _buildFullContent(
+    BuildContext context,
+    WidgetRef ref,
+    CafeReviewStats stats,
+    AsyncValue<List<ReviewModel>> reviewsAsync,
+    double bottomPadding,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildDragHandle(),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPadding + 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 14),
+                _buildInfoRow(Icons.place_outlined, _displayAddress),
+                if (place.phone.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _buildPhoneRow(),
+                ],
+                const SizedBox(height: 16),
+                _buildStatusSection(stats),
+                const SizedBox(height: 16),
+                _buildRatingSummary(context, ref, stats),
+                const SizedBox(height: 16),
+                _buildReviewList(context, reviewsAsync),
+                const SizedBox(height: 12),
+                _buildDirectionsButton(context),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────── 공통 위젯 ───────────────────────────
+
+  Widget _buildDragHandle() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 12, bottom: 16),
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.secondaryDark,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
 
   Widget _buildHeader() {
     return Row(
@@ -112,19 +206,7 @@ class CafeDetailBottomSheet extends ConsumerWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(place.name, style: AppTextStyles.h4),
-              if (place.category.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  place.category,
-                  style: AppTextStyles.bodySmall,
-                ),
-              ],
-            ],
-          ),
+          child: Text(place.name, style: AppTextStyles.h4),
         ),
       ],
     );
@@ -240,14 +322,60 @@ class CafeDetailBottomSheet extends ConsumerWidget {
   }
 
   Widget _buildDividerVertical() {
-    return Container(
-      width: 1,
-      height: 40,
-      color: AppColors.divider,
+    return Container(width: 1, height: 40, color: AppColors.divider);
+  }
+
+  // ─────────────────── 전체 모드 전용 ───────────────────
+
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '로그인이 필요합니다',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          '리뷰를 작성하려면 로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              '취소',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.push('/login');
+            },
+            child: const Text(
+              '로그인',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildRatingSummary(BuildContext context, CafeReviewStats stats) {
+  Widget _buildRatingSummary(
+      BuildContext context, WidgetRef ref, CafeReviewStats stats) {
+    final isLoggedIn = ref.watch(authStateProvider).value != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -257,7 +385,7 @@ class CafeDetailBottomSheet extends ConsumerWidget {
       child: Row(
         children: [
           if (stats.reviewCount > 0) ...[
-            Icon(Icons.star, size: 20, color: const Color(0xFFFFB800)),
+            const Icon(Icons.star, size: 20, color: Color(0xFFFFB800)),
             const SizedBox(width: 4),
             Text(
               stats.averageRating.toStringAsFixed(1),
@@ -266,10 +394,7 @@ class CafeDetailBottomSheet extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
-            Text(
-              '(${stats.reviewCount})',
-              style: AppTextStyles.bodySmall,
-            ),
+            Text('(${stats.reviewCount})', style: AppTextStyles.bodySmall),
           ] else ...[
             const Icon(Icons.star_outline,
                 size: 20, color: AppColors.crowdUnknown),
@@ -285,15 +410,20 @@ class CafeDetailBottomSheet extends ConsumerWidget {
             height: 34,
             child: ElevatedButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                if (!isLoggedIn) {
+                  _showLoginRequiredDialog(context);
+                  return;
+                }
                 final result = await ReviewWriteSheet.show(
                     context, place.name, _cafeId);
                 if (result == true && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('리뷰가 등록되었습니다')),
-                  );
-                  // 다시 bottom sheet 열기
-                  show(context, place);
+                  Navigator.of(context).pop();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('리뷰가 등록되었습니다')),
+                    );
+                    show(context, place);
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -318,27 +448,61 @@ class CafeDetailBottomSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildReviewList(AsyncValue<List<ReviewModel>> reviewsAsync) {
+  Widget _buildReviewList(
+    BuildContext context,
+    AsyncValue<List<ReviewModel>> reviewsAsync,
+  ) {
     return reviewsAsync.when(
       data: (reviews) {
         if (reviews.isEmpty) return const SizedBox.shrink();
-        // 최근 3개만 표시
-        final displayReviews = reviews.take(3).toList();
+        final displayReviews = reviews.take(5).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('최근 리뷰', style: AppTextStyles.labelMedium),
+            Row(
+              children: [
+                Text('최근 리뷰', style: AppTextStyles.labelMedium),
+                const SizedBox(width: 6),
+                Text(
+                  '${reviews.length}개',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
-            ...displayReviews.map((review) => _buildReviewItem(review)),
+            ...displayReviews
+                .map((review) => _buildReviewItem(review, context)),
           ],
         );
       },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ),
+      error: (e, s) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          '리뷰를 불러오지 못했습니다',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildReviewItem(ReviewModel review) {
+  Widget _buildReviewItem(ReviewModel review, BuildContext context) {
     final dateStr = DateFormat('yyyy.MM.dd').format(review.createdAt);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -352,14 +516,15 @@ class CafeDetailBottomSheet extends ConsumerWidget {
         children: [
           Row(
             children: [
-              // 별점
-              ...List.generate(5, (i) => Icon(
-                    i < review.rating ? Icons.star : Icons.star_border,
-                    size: 14,
-                    color: i < review.rating
-                        ? const Color(0xFFFFB800)
-                        : AppColors.secondaryDark,
-                  )),
+              ...List.generate(
+                  5,
+                  (i) => Icon(
+                        i < review.rating ? Icons.star : Icons.star_border,
+                        size: 14,
+                        color: i < review.rating
+                            ? const Color(0xFFFFB800)
+                            : AppColors.secondaryDark,
+                      )),
               const SizedBox(width: 8),
               Text(review.userName, style: AppTextStyles.caption),
               const Spacer(),
@@ -367,7 +532,6 @@ class CafeDetailBottomSheet extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 6),
-          // 태그
           Row(
             children: [
               _buildReviewTag(review.crowdLevel.label),
@@ -379,11 +543,65 @@ class CafeDetailBottomSheet extends ConsumerWidget {
           ),
           if (review.content.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(review.content, style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textPrimary,
-            )),
+            Text(review.content,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textPrimary,
+                )),
+          ],
+          if (review.photoUrls.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 60,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: review.photoUrls.length,
+                separatorBuilder: (c, i) => const SizedBox(width: 6),
+                itemBuilder: (_, index) => GestureDetector(
+                  onTap: () => _showFullScreenPhoto(
+                    context,
+                    review.photoUrls,
+                    index,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      review.photoUrls[index],
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => Container(
+                        width: 60,
+                        height: 60,
+                        color: AppColors.secondary,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          color: AppColors.textHint,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
+      ),
+    );
+  }
+
+  void _showFullScreenPhoto(
+    BuildContext context,
+    List<String> photoUrls,
+    int initialIndex,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FullScreenPhotoViewer(
+          photoUrls: photoUrls,
+          initialIndex: initialIndex,
+        ),
       ),
     );
   }
@@ -410,9 +628,9 @@ class CafeDetailBottomSheet extends ConsumerWidget {
       width: double.infinity,
       height: 52,
       child: ElevatedButton.icon(
-        onPressed: () => _openNaverMapDirections(),
-        icon: const Icon(Icons.directions, color: AppColors.textOnPrimary),
-        label: const Text('길찾기', style: AppTextStyles.button),
+        onPressed: () => _openInNaverMap(),
+        icon: const Icon(Icons.open_in_new, color: AppColors.textOnPrimary),
+        label: const Text('네이버 지도에서 보기', style: AppTextStyles.button),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(
@@ -431,18 +649,116 @@ class CafeDetailBottomSheet extends ConsumerWidget {
     }
   }
 
-  Future<void> _openNaverMapDirections() async {
-    final naverMapUri = Uri.parse(
-      'nmap://route/public?dlat=${place.lat}&dlng=${place.lng}&dname=${Uri.encodeComponent(place.name)}&appname=com.kagong.map',
+  Future<void> _openInNaverMap() async {
+    final naverAppUri = Uri.parse(
+      'nmap://place?lat=${place.lat}&lng=${place.lng}'
+      '&name=${Uri.encodeComponent(place.name)}'
+      '&appname=com.yjh.kagong.kagongMap',
     );
     final webUri = Uri.parse(
-      'https://map.naver.com/v5/directions/-/-/-/transit?c=${place.lng},${place.lat},15,0,0,0,dh',
+      'https://map.naver.com/v5/search/${Uri.encodeComponent(place.name)}',
     );
 
-    if (await canLaunchUrl(naverMapUri)) {
-      await launchUrl(naverMapUri);
+    if (await canLaunchUrl(naverAppUri)) {
+      await launchUrl(naverAppUri);
     } else {
       await launchUrl(webUri, mode: LaunchMode.externalApplication);
     }
+  }
+}
+
+/// 전체 화면 사진 뷰어
+class _FullScreenPhotoViewer extends StatefulWidget {
+  final List<String> photoUrls;
+  final int initialIndex;
+
+  const _FullScreenPhotoViewer({
+    required this.photoUrls,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenPhotoViewer> createState() => _FullScreenPhotoViewerState();
+}
+
+class _FullScreenPhotoViewerState extends State<_FullScreenPhotoViewer> {
+  late final PageController _pageController;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: widget.photoUrls.length > 1
+            ? Text(
+                '${_currentIndex + 1} / ${widget.photoUrls.length}',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+              )
+            : null,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: PageView.builder(
+        controller: _pageController,
+        itemCount: widget.photoUrls.length,
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        itemBuilder: (_, index) => InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 3.0,
+          child: Center(
+            child: Image.network(
+              widget.photoUrls[index],
+              fit: BoxFit.contain,
+              errorBuilder: (c, e, s) => const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    '이미지를 불러올 수 없습니다',
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                ],
+              ),
+              loadingBuilder: (_, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                    color: Colors.white54,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

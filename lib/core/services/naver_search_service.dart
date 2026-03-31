@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:kagong_map/core/constants/app_constants.dart';
-import 'package:kagong_map/features/cafe/domain/models/naver_place_model.dart';
+import 'package:kagong_map/features/cafe/domain/models/cafe_place_model.dart';
 
 class NaverSearchService {
   late final Dio _dio;
@@ -19,9 +19,9 @@ class NaverSearchService {
   }
 
   /// 장소 검색 (네이버 지역 검색 API)
-  Future<List<NaverPlaceModel>> searchPlaces(
+  Future<List<CafePlaceModel>> searchPlaces(
     String query, {
-    int display = 5,
+    int display = 20,
   }) async {
     try {
       debugPrint('[NaverSearch] 검색 시작: $query');
@@ -38,7 +38,7 @@ class NaverSearchService {
       final List<dynamic> items = response.data['items'] ?? [];
       return items
           .map((item) =>
-              NaverPlaceModel.fromJson(item as Map<String, dynamic>))
+              CafePlaceModel.fromNaverJson(item as Map<String, dynamic>))
           .toList();
     } on DioException catch (e) {
       debugPrint('[NaverSearch] API 오류: ${e.response?.statusCode}');

@@ -18,7 +18,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.value != null;
       final isOnLogin = state.matchedLocation == '/login';
 
-      if (!isLoggedIn && !isOnLogin) return '/login';
+      // 비로그인 사용자도 지도 화면(/) 접근 가능
+      // 로그인 상태에서 로그인 화면 접근 시에만 지도로 리다이렉트
       if (isLoggedIn && isOnLogin) return '/';
       return null;
     },

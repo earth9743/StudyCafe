@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kagong_map/core/services/kakao_search_service.dart';
 import 'package:kagong_map/core/theme/app_colors.dart';
 import 'package:kagong_map/features/auth/providers/auth_provider.dart';
-import 'package:kagong_map/features/cafe/domain/models/naver_place_model.dart';
+import 'package:kagong_map/features/cafe/domain/models/cafe_place_model.dart';
 import 'package:kagong_map/features/cafe/presentation/widgets/cafe_detail_bottom_sheet.dart';
 import 'package:kagong_map/features/cafe/providers/cafe_search_provider.dart';
+import 'package:kagong_map/features/cafe/providers/search_history_provider.dart';
 
 /// 메인 지도 화면 - 네이버 지도 표시
 class MapScreen extends ConsumerStatefulWidget {
@@ -22,10 +27,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _isSearching = false;
   NaverMapController? _mapController;
   final _searchController = TextEditingController();
+  final _kakaoService = KakaoSearchService();
+
+  /// 현재 지도에 표시 중인 주변 카페 목록 (마커 탭 시 상세 표시용)
+  final Map<String, CafePlaceModel> _nearbyCafes = {};
+  Timer? _cameraIdleTimer;
+
+  /// 커스텀 카페 마커 아이콘 (한 번 생성 후 재사용)
+  NOverlayImage? _cafeMarkerIcon;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cameraIdleTimer?.cancel();
     super.dispose();
   }
 
@@ -50,6 +64,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final marker = NMarker(id: 'my_location', position: target);
       marker.setCaption(const NOverlayCaption(text: '내 위치'));
       _mapController?.addOverlay(marker);
+
+      // 주변 카페 로드
+      _loadNearbyCafes(position.latitude, position.longitude);
     } catch (e) {
       debugPrint('[Location] 위치 오류: $e');
       if (mounted) {
@@ -57,6 +74,89 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           const SnackBar(content: Text('위치를 가져올 수 없습니다')),
         );
       }
+    }
+  }
+
+  /// 커스텀 카페 마커 아이콘 생성 (최초 1회)
+  Future<NOverlayImage> _getOrCreateMarkerIcon() async {
+    if (_cafeMarkerIcon != null) return _cafeMarkerIcon!;
+
+    _cafeMarkerIcon = await NOverlayImage.fromWidget(
+      context: context,
+      widget: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.local_cafe,
+          color: Colors.white,
+          size: 14,
+        ),
+      ),
+      size: const Size(30, 30),
+    );
+
+    return _cafeMarkerIcon!;
+  }
+
+  /// 주변 카페를 카카오 API로 검색하여 지도에 마커로 표시
+  Future<void> _loadNearbyCafes(double lat, double lng) async {
+    try {
+      final cafes = await _kakaoService.searchNearbyCafes(
+        latitude: lat,
+        longitude: lng,
+        radius: 2000,
+        size: 15,
+      );
+
+      if (!mounted || _mapController == null) return;
+
+      _nearbyCafes.clear();
+
+      final markerIcon = await _getOrCreateMarkerIcon();
+
+      for (final cafe in cafes) {
+        final markerId = 'cafe_${cafe.lat}_${cafe.lng}';
+        _nearbyCafes[markerId] = cafe;
+
+        final marker = NMarker(
+          id: markerId,
+          position: NLatLng(cafe.lat, cafe.lng),
+          icon: markerIcon,
+        );
+        marker.setSize(const Size(30, 30));
+        marker.setCaption(NOverlayCaption(
+          text: cafe.name,
+          textSize: 10,
+          color: AppColors.textPrimary,
+          haloColor: Colors.white,
+        ));
+
+        marker.setOnTapListener((overlay) {
+          final tappedCafe = _nearbyCafes[overlay.info.id];
+          if (tappedCafe != null && mounted) {
+            // 마커 탭: 컴팩트 모드 (스크롤 업하면 전체 펼침)
+            CafeDetailBottomSheet.showCompact(context, tappedCafe);
+          }
+        });
+
+        _mapController?.addOverlay(marker);
+      }
+
+      debugPrint('[Map] 주변 카페 ${cafes.length}개 마커 표시');
+    } catch (e) {
+      debugPrint('[Map] 주변 카페 로드 실패: $e');
     }
   }
 
@@ -73,27 +173,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     FocusScope.of(context).unfocus();
   }
 
-  Future<void> _selectPlace(NaverPlaceModel place) async {
+  /// 검색어를 기록에 저장하고 검색을 실행한다.
+  void _executeSearchFromHistory(String query) {
+    _searchController.text = query;
+    ref.read(cafeSearchQueryProvider.notifier).setQuery(query);
+    ref.read(searchHistoryProvider.notifier).addQuery(query);
+  }
+
+  Future<void> _selectPlace(CafePlaceModel place) async {
+    // 현재 검색어를 기록에 저장
+    final currentQuery = ref.read(cafeSearchQueryProvider);
+    if (currentQuery.trim().isNotEmpty) {
+      ref.read(searchHistoryProvider.notifier).addQuery(currentQuery.trim());
+    }
     _hideSearchSheet();
 
     final target = NLatLng(place.lat, place.lng);
 
-    final marker = NMarker(
-      id: '${place.lat}_${place.lng}',
-      position: target,
-    );
-    marker.setCaption(NOverlayCaption(text: place.name));
-
-    // 마커 탭 시에도 Bottom Sheet 표시
-    marker.setOnTapListener((overlay) {
-      if (mounted) {
-        CafeDetailBottomSheet.show(context, place);
-      }
-    });
-
-    _mapController?.clearOverlays();
-    _mapController?.addOverlay(marker);
-
+    // 선택된 카페로 카메라 이동 (onCameraIdle에서 주변 카페 자동 로드)
     await _mapController?.updateCamera(
       NCameraUpdate.scrollAndZoomTo(target: target, zoom: 16),
     );
@@ -102,6 +199,42 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (mounted) {
       CafeDetailBottomSheet.show(context, place);
     }
+  }
+
+  /// 로그인 상태에 따라 로그인/로그아웃 버튼을 표시
+  Widget _buildAuthButton() {
+    final authState = ref.watch(authStateProvider);
+    final isLoggedIn = authState.value != null;
+
+    return Container(
+      height: 48,
+      width: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IconButton(
+        onPressed: () {
+          if (isLoggedIn) {
+            ref.read(authControllerProvider.notifier).signOut();
+          } else {
+            context.push('/login');
+          }
+        },
+        icon: Icon(
+          isLoggedIn ? Icons.logout : Icons.login,
+          color: AppColors.primary,
+        ),
+        tooltip: isLoggedIn ? '로그아웃' : '로그인',
+      ),
+    );
   }
 
   @override
@@ -125,6 +258,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               _mapController = controller;
               setState(() => _isMapReady = true);
               _moveToCurrentLocation();
+            },
+            onCameraIdle: () {
+              // 카메라 이동 완료 시 디바운스 후 주변 카페 갱신
+              _cameraIdleTimer?.cancel();
+              _cameraIdleTimer = Timer(const Duration(milliseconds: 800), () async {
+                if (_mapController == null || _isSearching || !mounted) return;
+                final cameraPosition = await _mapController!.getCameraPosition();
+                final target = cameraPosition.target;
+                _loadNearbyCafes(target.latitude, target.longitude);
+              });
             },
           ),
           // 지도 로딩 중 표시
@@ -176,7 +319,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             Icon(Icons.search, color: AppColors.textSecondary),
                             SizedBox(width: 8),
                             Text(
-                              '카페 검색',
+                              '카페 이름을 입력해주세요',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 16,
@@ -188,27 +331,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    height: 48,
-                    width: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        ref.read(authControllerProvider.notifier).signOut();
-                      },
-                      icon: const Icon(Icons.logout, color: AppColors.primary),
-                    ),
-                  ),
+                  _buildAuthButton(),
                 ],
               ),
             ),
@@ -298,7 +421,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
-                          hintText: '지역명 또는 카페 이름 검색',
+                          hintText: '카페 이름을 입력해주세요 (예: 스타벅스)',
                           prefixIcon: const Icon(
                               Icons.search, color: AppColors.primary),
                           border: OutlineInputBorder(
@@ -313,12 +436,28 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    ref
+                                        .read(cafeSearchQueryProvider.notifier)
+                                        .setQuery('');
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                )
+                              : null,
                           filled: true,
                           fillColor: AppColors.secondary,
                           contentPadding:
                               const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         onChanged: (value) {
+                          setState(() {}); // X 버튼 표시/숨김 갱신
                           ref
                               .read(cafeSearchQueryProvider.notifier)
                               .setQueryDebounced(value);
@@ -327,6 +466,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           ref
                               .read(cafeSearchQueryProvider.notifier)
                               .setQuery(value);
+                          if (value.trim().isNotEmpty) {
+                            ref
+                                .read(searchHistoryProvider.notifier)
+                                .addQuery(value.trim());
+                          }
                         },
                       ),
                     ),
@@ -349,12 +493,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   if (places.isEmpty) {
                     final query = ref.read(cafeSearchQueryProvider);
                     if (query.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          '검색어를 입력해주세요',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      );
+                      return _buildSearchHistoryList();
                     }
                     return const Center(
                       child: Text(
@@ -407,6 +546,92 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 검색어가 비어 있을 때 최근 검색 기록을 표시한다.
+  Widget _buildSearchHistoryList() {
+    final historyAsync = ref.watch(searchHistoryProvider);
+
+    return historyAsync.when(
+      data: (history) {
+        if (history.isEmpty) {
+          return const Center(
+            child: Text(
+              '최근 검색 기록이 없습니다',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                '최근 검색',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: history.length,
+                separatorBuilder: (_, _) => const Divider(
+                  height: 1,
+                  indent: 48,
+                  color: AppColors.divider,
+                ),
+                itemBuilder: (context, index) {
+                  final query = history[index];
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.history,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    title: Text(
+                      query,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                      ),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        ref
+                            .read(searchHistoryProvider.notifier)
+                            .removeQuery(query);
+                      },
+                    ),
+                    contentPadding: const EdgeInsets.only(left: 16, right: 4),
+                    onTap: () => _executeSearchFromHistory(query),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+      error: (_, _) => const Center(
+        child: Text(
+          '검색 기록을 불러올 수 없습니다',
+          style: TextStyle(color: AppColors.textSecondary),
         ),
       ),
     );

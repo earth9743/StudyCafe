@@ -116,6 +116,7 @@ class ReviewModel {
   final OutletLevel outletLevel;
   final NoiseLevel noiseLevel;
   final String content;
+  final List<String> photoUrls;
   final DateTime createdAt;
 
   const ReviewModel({
@@ -128,6 +129,7 @@ class ReviewModel {
     required this.outletLevel,
     required this.noiseLevel,
     required this.content,
+    this.photoUrls = const [],
     required this.createdAt,
   });
 
@@ -141,6 +143,7 @@ class ReviewModel {
       'outletLevel': outletLevel.value,
       'noiseLevel': noiseLevel.value,
       'content': content,
+      'photoUrls': photoUrls,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -156,6 +159,10 @@ class ReviewModel {
       outletLevel: OutletLevel.fromValue(json['outletLevel'] as int? ?? 2),
       noiseLevel: NoiseLevel.fromValue(json['noiseLevel'] as int? ?? 2),
       content: json['content'] as String? ?? '',
+      photoUrls: (json['photoUrls'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }

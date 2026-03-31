@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kagong_map/core/theme/app_colors.dart';
 import 'package:kagong_map/core/theme/app_text_styles.dart';
 import 'package:kagong_map/features/auth/providers/auth_provider.dart';
@@ -82,6 +83,9 @@ class LoginScreen extends ConsumerWidget {
       }
     });
 
+    // push로 진입한 경우 뒤로가기 가능 (canPop)
+    final canPop = context.canPop();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -89,6 +93,19 @@ class LoginScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             children: [
+              if (canPop)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.pop(),
+                    child: Text(
+                      '건너뛰기',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
               const Spacer(flex: 3),
 
               // 로고 & 앱 이름

@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:kagong_map/core/services/naver_search_service.dart';
-import 'package:kagong_map/features/cafe/domain/models/naver_place_model.dart';
+import 'package:kagong_map/core/services/kakao_search_service.dart';
+import 'package:kagong_map/core/constants/cafe_franchises.dart';
+import 'package:kagong_map/features/cafe/domain/models/cafe_place_model.dart';
 
-final naverSearchServiceProvider = Provider<NaverSearchService>((ref) {
-  return NaverSearchService();
+final kakaoSearchServiceProvider = Provider<KakaoSearchService>((ref) {
+  return KakaoSearchService();
 });
 
 /// 한글 자모(미완성 글자)인지 확인
@@ -18,19 +18,6 @@ bool _endsWithIncompleteJamo(String text) {
   // ㄱ~ㅎ (0x3131~0x314E) 또는 ㅏ~ㅣ (0x314F~0x3163)
   return (lastChar >= 0x3131 && lastChar <= 0x3163);
 }
-
-/// 두 좌표 간 거리 계산 (Haversine, km)
-double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
-  const R = 6371.0; // 지구 반지름 (km)
-  final dLat = _toRad(lat2 - lat1);
-  final dLng = _toRad(lng2 - lng1);
-  final a = sin(dLat / 2) * sin(dLat / 2) +
-      cos(_toRad(lat1)) * cos(_toRad(lat2)) * sin(dLng / 2) * sin(dLng / 2);
-  final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  return R * c;
-}
-
-double _toRad(double deg) => deg * pi / 180;
 
 class CafeSearchQueryNotifier extends Notifier<String> {
   Timer? _debounceTimer;
@@ -75,29 +62,102 @@ final cafeSearchQueryProvider =
     NotifierProvider<CafeSearchQueryNotifier, String>(
         CafeSearchQueryNotifier.new);
 
-/// 검색 결과를 현재 위치 기준 가까운 순으로 정렬
+/// 카카오 로컬 검색 API를 사용한 카페 검색
+///
+/// 현재 위치 좌표 + 반경 5km + 거리순 정렬을 카카오 API에 위임하여
+/// 기존의 다중 검색 + 클라이언트 정렬 로직을 단순화한다.
+/// 프랜차이즈 사전은 부분 일치 보완용으로 유지한다.
 final cafeSearchResultsProvider =
-    FutureProvider.autoDispose<List<NaverPlaceModel>>((ref) async {
+    FutureProvider.autoDispose<List<CafePlaceModel>>((ref) async {
   final query = ref.watch(cafeSearchQueryProvider);
   if (query.trim().length < 2) return [];
 
-  final service = ref.watch(naverSearchServiceProvider);
-  final places = await service.searchPlaces('$query 카페');
+  final service = ref.watch(kakaoSearchServiceProvider);
 
-  // 현재 위치 기준 거리순 정렬
+  // 현재 위치 가져오기
+  Position? position;
   try {
-    final position = await Geolocator.getLastKnownPosition() ??
+    position = await Geolocator.getLastKnownPosition() ??
         await Geolocator.getCurrentPosition();
-    places.sort((a, b) {
-      final distA =
-          _distanceKm(position.latitude, position.longitude, a.lat, a.lng);
-      final distB =
-          _distanceKm(position.latitude, position.longitude, b.lat, b.lng);
-      return distA.compareTo(distB);
-    });
   } catch (_) {
-    // 위치 권한 없으면 기본 순서 유지
+    // 위치 권한 없으면 좌표 없이 검색
   }
 
-  return places;
+  // 프랜차이즈 사전에서 매칭되는 브랜드명 수집
+  final franchiseBrands = <String>{};
+  for (final entry in cafeFranchiseMap.entries) {
+    if (query.contains(entry.key) || query.startsWith(entry.key)) {
+      franchiseBrands.add(entry.value);
+    }
+  }
+
+  // 카카오 API로 검색 실행
+  final futures = <Future<List<CafePlaceModel>>>[];
+
+  if (position != null) {
+    // 좌표 있으면: 원본 쿼리 + 카페 카테고리 필터 + 거리순
+    futures.add(service.searchPlaces(
+      query,
+      x: position.longitude,
+      y: position.latitude,
+      radius: 5000,
+      categoryGroupCode: 'CE7',
+      sort: 'distance',
+    ));
+
+    // 카페 카테고리 없이도 검색 (카페가 아닌 카테고리로 등록된 경우 대비)
+    futures.add(service.searchPlaces(
+      '$query 카페',
+      x: position.longitude,
+      y: position.latitude,
+      radius: 5000,
+      sort: 'distance',
+    ));
+
+    // 프랜차이즈 브랜드명 추가 검색
+    for (final brand in franchiseBrands) {
+      futures.add(service.searchPlaces(
+        brand,
+        x: position.longitude,
+        y: position.latitude,
+        radius: 5000,
+        categoryGroupCode: 'CE7',
+        sort: 'distance',
+      ));
+    }
+  } else {
+    // 좌표 없으면: 정확도순 검색
+    futures.add(service.searchPlaces(query, categoryGroupCode: 'CE7'));
+    futures.add(service.searchPlaces('$query 카페'));
+
+    for (final brand in franchiseBrands) {
+      futures.add(service.searchPlaces(brand, categoryGroupCode: 'CE7'));
+    }
+  }
+
+  final results = await Future.wait(futures);
+
+  // 모든 결과 병합 후 중복 제거 (같은 이름+주소 기준)
+  final seen = <String>{};
+  final merged = <CafePlaceModel>[];
+  for (final places in results) {
+    for (final place in places) {
+      final key = '${place.name}|${place.address}';
+      if (seen.add(key)) {
+        merged.add(place);
+      }
+    }
+  }
+
+  // 카카오 API가 거리순으로 반환하므로 추가 정렬은 불필요하지만,
+  // 다중 검색 결과 병합 시 순서가 섞일 수 있으므로 위치 있을 때만 재정렬
+  if (position != null) {
+    merged.sort((a, b) {
+      final distA = int.tryParse(a.distance ?? '') ?? 999999;
+      final distB = int.tryParse(b.distance ?? '') ?? 999999;
+      return distA.compareTo(distB);
+    });
+  }
+
+  return merged;
 });

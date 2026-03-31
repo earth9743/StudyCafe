@@ -34,10 +34,10 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // 2초 후 로그인 화면으로 이동
+    // 2초 후 지도 화면으로 이동 (비로그인 사용자도 바로 지도 접근 가능)
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        context.go('/login');
+        context.go('/');
       }
     });
   }

@@ -27,7 +27,10 @@ class AppConstants {
   static const String ncpClientId = 'df7ggcsnru';
   static const String ncpClientSecret = 'bCGCLGCfz9uvug7sD1w91JD4au8J6RiJX1blZXaz';
 
-  // 네이버 개발자 센터 API 키 (검색 API용)
+  // 네이버 개발자 센터 API 키 (검색 API용 - 레거시, 카카오로 전환됨)
   static const String naverClientId = '97yJY1Teft5Q98NhkzVk';
   static const String naverClientSecret = 'Tpm6LIoRGs';
+
+  // 카카오 REST API 키 (로컬 검색 API용)
+  static const String kakaoRestApiKey = '096da5bcbb7eb667d3855607766de216';
 }
