@@ -16,15 +16,39 @@ String generateCafeId(String name, double lat, double lng) {
 /// 특정 카페의 리뷰 목록 Provider
 final cafeReviewsProvider =
     StreamProvider.family<List<ReviewModel>, String>((ref, cafeId) {
+  debugPrint('[CafeReviews] Provider 시작 — cafeId: $cafeId');
+  debugPrint('[CafeReviews] Firestore 쿼리: cafes/$cafeId/reviews (orderBy createdAt desc)');
+
   return FirebaseFirestore.instance
       .collection('cafes')
       .doc(cafeId)
       .collection('reviews')
       .orderBy('createdAt', descending: true)
       .snapshots()
-      .map((snapshot) => snapshot.docs
-          .map((doc) => ReviewModel.fromJson(doc.id, doc.data()))
-          .toList());
+      .handleError((Object error, StackTrace stackTrace) {
+    debugPrint('[CafeReviews] Firestore 스트림 에러 발생 — cafeId: $cafeId');
+    debugPrint('[CafeReviews] 에러: $error');
+    debugPrint('[CafeReviews] 에러 타입: ${error.runtimeType}');
+    debugPrint('[CafeReviews] 스택트레이스:\n$stackTrace');
+  }).map((snapshot) {
+    debugPrint('[CafeReviews] 스냅샷 수신 — cafeId: $cafeId, 문서 수: ${snapshot.docs.length}');
+
+    final reviews = <ReviewModel>[];
+    for (final doc in snapshot.docs) {
+      try {
+        final review = ReviewModel.fromJson(doc.id, doc.data());
+        reviews.add(review);
+      } catch (e, st) {
+        debugPrint('[CafeReviews] 문서 파싱 실패: id=${doc.id}');
+        debugPrint('[CafeReviews] 파싱 에러: $e');
+        debugPrint('[CafeReviews] raw data: ${doc.data()}');
+        debugPrint('[CafeReviews] 스택트레이스:\n$st');
+      }
+    }
+
+    debugPrint('[CafeReviews] 파싱 완료 — 성공: ${reviews.length}/${snapshot.docs.length}');
+    return reviews;
+  });
 });
 
 /// 특정 카페의 리뷰 통계 Provider
@@ -89,17 +113,23 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
+      debugPrint('[ReviewSubmit] 리뷰 제출 시작 — cafeId: $cafeId');
+      debugPrint('[ReviewSubmit] 현재 사용자: ${user?.uid ?? "null"}');
+
       if (user == null) {
+        debugPrint('[ReviewSubmit] 에러: 로그인된 사용자 없음');
         state = AsyncValue.error('로그인이 필요합니다', StackTrace.current);
         return false;
       }
 
       // 이미지 업로드
+      debugPrint('[ReviewSubmit] 이미지 업로드 시작 — 파일 수: ${imageFiles.length}');
       final photoUrls = await _uploadImages(
         cafeId: cafeId,
         userId: user.uid,
         imageFiles: imageFiles,
       );
+      debugPrint('[ReviewSubmit] 이미지 업로드 완료 — URL 수: ${photoUrls.length}');
 
       final reviewData = ReviewModel(
         id: '',
@@ -116,16 +146,20 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
       );
 
       // 자동 생성 ID로 리뷰를 누적 저장 (동일 사용자도 여러 리뷰 가능)
-      await FirebaseFirestore.instance
+      debugPrint('[ReviewSubmit] Firestore 저장 시작 — cafes/$cafeId/reviews');
+      final docRef = await FirebaseFirestore.instance
           .collection('cafes')
           .doc(cafeId)
           .collection('reviews')
           .add(reviewData.toJson());
+      debugPrint('[ReviewSubmit] Firestore 저장 성공 — docId: ${docRef.id}');
 
       state = const AsyncValue.data(null);
       return true;
     } catch (e, st) {
-      debugPrint('[Review] 리뷰 저장 실패: $e');
+      debugPrint('[ReviewSubmit] 리뷰 저장 실패: $e');
+      debugPrint('[ReviewSubmit] 에러 타입: ${e.runtimeType}');
+      debugPrint('[ReviewSubmit] 스택트레이스:\n$st');
       state = AsyncValue.error(e, st);
       return false;
     }

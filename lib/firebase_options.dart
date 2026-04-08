@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart'
 ///   options: DefaultFirebaseOptions.currentPlatform,
 /// );
 /// ```
-class DefaultFirebaseOptions {
+class DevFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
@@ -24,24 +24,9 @@ class DefaultFirebaseOptions {
         return android;
       case TargetPlatform.iOS:
         return ios;
-      case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
-      case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
-      case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
       default:
         throw UnsupportedError(
-          'DefaultFirebaseOptions are not supported for this platform.',
+          'DevFirebaseOptions are not supported for this platform.',
         );
     }
   }
@@ -55,6 +40,8 @@ class DefaultFirebaseOptions {
     storageBucket: 'kagong-map.firebasestorage.app',
     measurementId: 'G-6Z8RWGJGSE',
   );
+
+  // TODO: flutterfire configure --project=kagong-map 실행 후 아래 값들을 교체
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCVgVvr5cuPdtxPF9UIQaYR6fvH5Xynmao',
@@ -70,6 +57,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '425690840012',
     projectId: 'kagong-map',
     storageBucket: 'kagong-map.firebasestorage.app',
+    androidClientId: '425690840012-dfrgn9b6rksor52gar3j4e82k78g3vb4.apps.googleusercontent.com',
+    iosClientId: '425690840012-0jsbcqbritbn2avo2ji33pnpemo1c031.apps.googleusercontent.com',
     iosBundleId: 'com.yjh.kagong.kagongMap',
   );
 

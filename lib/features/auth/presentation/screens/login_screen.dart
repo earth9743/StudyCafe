@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,6 +47,11 @@ class LoginScreen extends ConsumerWidget {
     final isLoading = authState.isLoading;
 
     ref.listen<AsyncValue<void>>(authControllerProvider, (prev, next) {
+      // 로그인 성공 시 지도 화면으로 이동
+      if (prev is AsyncLoading && next is AsyncData && FirebaseAuth.instance.currentUser != null) {
+        context.go('/');
+        return;
+      }
       if (next is AsyncError) {
         final message = _getUserFriendlyMessage(next.error.toString());
         // 사용자가 직접 취소한 경우 에러를 표시하지 않음
