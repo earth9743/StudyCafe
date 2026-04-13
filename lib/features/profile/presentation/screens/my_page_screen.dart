@@ -421,6 +421,21 @@ class MyPageScreen extends ConsumerWidget {
             onTap: () => _showLogoutDialog(context, ref),
           ),
           const Divider(height: 1, color: AppColors.divider),
+          const SizedBox(height: 24),
+          // 회원 탈퇴 버튼
+          Center(
+            child: TextButton(
+              onPressed: () => _showDeleteAccountDialog(context, ref),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+                textStyle: AppTextStyles.bodySmall.copyWith(
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              child: const Text('회원 탈퇴'),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -507,6 +522,93 @@ class MyPageScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 회원 탈퇴 확인 다이얼로그
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          '회원 탈퇴',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: const Text(
+          '정말 탈퇴하시겠습니까?\n모든 데이터가 삭제되며 복구할 수 없습니다.\n\n보안을 위해 본인 확인 화면이 나타날 수 있습니다.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text(
+              '취소',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _performDeleteAccount(context, ref);
+            },
+            child: const Text(
+              '탈퇴',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 회원 탈퇴 실행
+  Future<void> _performDeleteAccount(BuildContext context, WidgetRef ref) async {
+    // 로딩 다이얼로그 표시
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+    );
+
+    try {
+      await ref.read(authControllerProvider.notifier).deleteAccount();
+      if (context.mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+        context.go('/');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+
+        final errorStr = e.toString().toLowerCase();
+        // 사용자가 재인증을 취소한 경우 무시
+        if (errorStr.contains('user_canceled') || errorStr.contains('canceled')) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('회원 탈퇴에 실패했습니다. 다시 시도해 주세요.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   /// 오픈소스 라이센스 화면

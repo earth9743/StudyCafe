@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -151,6 +152,29 @@ class AuthRepositoryImpl implements AuthRepository {
       'agreedToMarketing': marketing,
       'updatedAt': Timestamp.now(),
     });
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('로그인된 사용자가 없습니다.');
+    }
+
+    // Cloud Function 호출 (Admin SDK로 서버에서 삭제 처리)
+    // 재인증 불필요 - Admin SDK가 requires-recent-login 우회
+    debugPrint('[AuthRepo] Cloud Function deleteAccount 호출');
+    final callable = FirebaseFunctions.instance.httpsCallable('deleteAccount');
+    await callable.call();
+    debugPrint('[AuthRepo] Cloud Function deleteAccount 완료');
+
+    // 소셜 로그인 세션 정리
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
+    try {
+      await kakao.UserApi.instance.logout();
+    } catch (_) {}
   }
 
   Future<void> _createUserDocument(

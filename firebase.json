@@ -1,1 +1,47 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"kagong-map","appId":"1:425690840012:android:51b9120b72ae2cc88b3b69","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"kagong-map","appId":"1:425690840012:ios:0dc834466750ea368b3b69","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"kagong-map","configurations":{"android":"1:425690840012:android:51b9120b72ae2cc88b3b69","ios":"1:425690840012:ios:0dc834466750ea368b3b69","web":"1:425690840012:web:2e7e6745c0d0cc088b3b69"}}}}}}
+{
+  "firestore": {
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "kagong-map",
+          "appId": "1:425690840012:android:51b9120b72ae2cc88b3b69",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "kagong-map",
+          "appId": "1:425690840012:ios:0dc834466750ea368b3b69",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "kagong-map",
+          "configurations": {
+            "android": "1:425690840012:android:51b9120b72ae2cc88b3b69",
+            "ios": "1:425690840012:ios:0dc834466750ea368b3b69",
+            "web": "1:425690840012:web:2e7e6745c0d0cc088b3b69"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
+}

@@ -6,8 +6,7 @@ import 'package:flutter_naver_map/flutter_naver_map.dart' show FlutterNaverMap;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'firebase_options.dart' as dev;
-import 'firebase_options_prod.dart' as prod;
+import 'firebase_options.dart';
 import 'core/config/app_env.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
@@ -19,10 +18,8 @@ void main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   try {
-    // Firebase 초기화 (환경별 분기)
-    final firebaseOptions = AppEnv.current.isProd
-        ? prod.ProdFirebaseOptions.currentPlatform
-        : dev.DevFirebaseOptions.currentPlatform;
+    // Firebase 초기화 (키는 --dart-define-from-file 에서 주입됨)
+    final firebaseOptions = DevFirebaseOptions.currentPlatform;
     debugPrint('[Init] Firebase 초기화 시작 (${AppEnv.current.name})');
     await Firebase.initializeApp(options: firebaseOptions);
     debugPrint('[Init] Firebase 초기화 완료');
@@ -36,7 +33,7 @@ void main() async {
 
     // 네이버 지도 SDK 초기화
     debugPrint('[Init] 네이버 지도 SDK 초기화 시작');
-    await FlutterNaverMap().init(clientId: 'df7ggcsnru');
+    await FlutterNaverMap().init(clientId: AppConstants.ncpClientId);
     debugPrint('[Init] 네이버 지도 SDK 초기화 완료');
   } catch (e, st) {
     debugPrint('[Init] SDK 초기화 오류: $e');

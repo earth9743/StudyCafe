@@ -100,6 +100,8 @@ class CafeDetailBottomSheet extends ConsumerWidget {
               const SizedBox(height: 16),
               _buildStatusSection(stats),
               const SizedBox(height: 12),
+              _buildCompactRatingRow(context, ref, stats),
+              const SizedBox(height: 12),
               // 자세히 보기 버튼
               SizedBox(
                 width: double.infinity,
@@ -197,6 +199,104 @@ class CafeDetailBottomSheet extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 컴팩트 모드: 평점 + 리뷰 보기/쓰기 버튼
+  Widget _buildCompactRatingRow(
+      BuildContext context, WidgetRef ref, CafeReviewStats stats) {
+    final isLoggedIn = ref.watch(authStateProvider).value != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          if (stats.reviewCount > 0) ...[
+            const Icon(Icons.star, size: 18, color: Color(0xFFFFB800)),
+            const SizedBox(width: 4),
+            Text(
+              stats.averageRating.toStringAsFixed(1),
+              style: AppTextStyles.labelMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 3),
+            Text('(${stats.reviewCount})',
+                style: AppTextStyles.caption),
+          ] else ...[
+            const Icon(Icons.star_outline,
+                size: 18, color: AppColors.crowdUnknown),
+            const SizedBox(width: 6),
+            Text(
+              '리뷰 없음',
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+          const Spacer(),
+          if (stats.reviewCount > 0) ...[
+            SizedBox(
+              height: 28,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  show(context, place);
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  textStyle: AppTextStyles.caption.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                ),
+                child: const Text('리뷰 보기'),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          SizedBox(
+            height: 28,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                if (!isLoggedIn) {
+                  _showLoginRequiredDialog(context);
+                  return;
+                }
+                final result =
+                    await ReviewWriteSheet.show(context, place.name, _cafeId);
+                if (result == true && context.mounted) {
+                  Navigator.of(context).pop();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('리뷰가 등록되었습니다')),
+                    );
+                    showCompact(context, place);
+                  }
+                }
+              },
+              icon: const Icon(Icons.edit_outlined, size: 12),
+              label: const Text('리뷰 쓰기'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 0.8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                textStyle: AppTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -387,6 +487,8 @@ class CafeDetailBottomSheet extends ConsumerWidget {
 
   Widget _buildRatingSummary(
       BuildContext context, WidgetRef ref, CafeReviewStats stats) {
+    final isLoggedIn = ref.watch(authStateProvider).value != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -417,13 +519,42 @@ class CafeDetailBottomSheet extends ConsumerWidget {
             ),
           ],
           const Spacer(),
-          if (stats.reviewCount == 0)
-            Text(
-              '첫 리뷰를 남겨보세요!',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
+          SizedBox(
+            height: 30,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                if (!isLoggedIn) {
+                  _showLoginRequiredDialog(context);
+                  return;
+                }
+                final result =
+                    await ReviewWriteSheet.show(context, place.name, _cafeId);
+                if (result == true && context.mounted) {
+                  Navigator.of(context).pop();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('리뷰가 등록되었습니다')),
+                    );
+                    show(context, place);
+                  }
+                }
+              },
+              icon: const Icon(Icons.edit_outlined, size: 13),
+              label: const Text('리뷰 쓰기'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary, width: 0.8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                textStyle: AppTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -437,26 +568,10 @@ class CafeDetailBottomSheet extends ConsumerWidget {
     return reviewsAsync.when(
       data: (reviews) {
         if (reviews.isEmpty) return const SizedBox.shrink();
-        final displayReviews = reviews.take(5).toList();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text('최근 리뷰', style: AppTextStyles.labelMedium),
-                const SizedBox(width: 6),
-                Text(
-                  '${reviews.length}개',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...displayReviews
-                .map((review) => _buildReviewItem(review, context)),
-          ],
+        return _ReviewListContent(
+          reviews: reviews,
+          onReviewTap: (review) => _showReviewDetail(context, review),
+          buildReviewItem: (review) => _buildReviewItem(review, context),
         );
       },
       loading: () => const Padding(
@@ -867,7 +982,7 @@ class CafeDetailBottomSheet extends ConsumerWidget {
     return SizedBox(
       width: double.infinity,
       height: 52,
-      child: ElevatedButton.icon(
+      child: OutlinedButton.icon(
         onPressed: () async {
           if (!isLoggedIn) {
             _showLoginRequiredDialog(context);
@@ -885,19 +1000,18 @@ class CafeDetailBottomSheet extends ConsumerWidget {
             }
           }
         },
-        icon: const Icon(Icons.edit_outlined, color: AppColors.textOnPrimary, size: 20),
+        icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
         label: Text(
           '리뷰 쓰기',
           style: AppTextStyles.button.copyWith(
-            color: AppColors.textOnPrimary,
+            color: AppColors.primary,
           ),
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: AppColors.primary, width: 1.2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          elevation: 0,
         ),
       ),
     );
@@ -1039,6 +1153,67 @@ class _FullScreenPhotoViewerState extends State<_FullScreenPhotoViewer> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 리뷰 목록: 처음 3개만 보여주고 "더 보기" 누르면 전체 표시
+class _ReviewListContent extends StatefulWidget {
+  final List<ReviewModel> reviews;
+  final void Function(ReviewModel) onReviewTap;
+  final Widget Function(ReviewModel) buildReviewItem;
+
+  const _ReviewListContent({
+    required this.reviews,
+    required this.onReviewTap,
+    required this.buildReviewItem,
+  });
+
+  @override
+  State<_ReviewListContent> createState() => _ReviewListContentState();
+}
+
+class _ReviewListContentState extends State<_ReviewListContent> {
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayReviews = _showAll
+        ? widget.reviews
+        : widget.reviews.take(3).toList();
+    final hasMore = !_showAll && widget.reviews.length > 3;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('최근 리뷰', style: AppTextStyles.labelMedium),
+            const SizedBox(width: 6),
+            Text(
+              '${widget.reviews.length}개',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...displayReviews.map((review) => widget.buildReviewItem(review)),
+        if (hasMore)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _showAll = true),
+              child: Text(
+                '리뷰 ${widget.reviews.length - 3}개 더 보기',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -72,6 +72,20 @@ class AuthController extends Notifier<AsyncValue<void>> {
     });
   }
 
+  /// 회원 탈퇴
+  Future<void> deleteAccount() async {
+    state = const AsyncValue.loading();
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      await authRepo.deleteAccount();
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('[AuthController] 회원 탈퇴 에러: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   Future<void> saveAgreements({
     required bool terms,
     required bool privacy,

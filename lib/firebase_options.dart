@@ -3,17 +3,9 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'core/config/env_keys.dart';
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
+/// Dev [FirebaseOptions] — all values injected via `--dart-define-from-file`.
 class DevFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -32,34 +24,31 @@ class DevFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDcZ8zcuR_7M5H-Hh4nKEntV0aaf7L-9gM',
-    appId: '1:425690840012:web:2e7e6745c0d0cc088b3b69',
-    messagingSenderId: '425690840012',
-    projectId: 'kagong-map',
-    authDomain: 'kagong-map.firebaseapp.com',
-    storageBucket: 'kagong-map.firebasestorage.app',
-    measurementId: 'G-6Z8RWGJGSE',
+    apiKey: EnvKeys.firebaseWebApiKey,
+    appId: EnvKeys.firebaseWebAppId,
+    messagingSenderId: EnvKeys.firebaseWebMessagingSenderId,
+    projectId: EnvKeys.firebaseWebProjectId,
+    authDomain: EnvKeys.firebaseWebAuthDomain,
+    storageBucket: EnvKeys.firebaseWebStorageBucket,
+    measurementId: EnvKeys.firebaseWebMeasurementId,
   );
 
-  // TODO: flutterfire configure --project=kagong-map 실행 후 아래 값들을 교체
-
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCVgVvr5cuPdtxPF9UIQaYR6fvH5Xynmao',
-    appId: '1:425690840012:android:51b9120b72ae2cc88b3b69',
-    messagingSenderId: '425690840012',
-    projectId: 'kagong-map',
-    storageBucket: 'kagong-map.firebasestorage.app',
+    apiKey: EnvKeys.firebaseAndroidApiKey,
+    appId: EnvKeys.firebaseAndroidAppId,
+    messagingSenderId: EnvKeys.firebaseAndroidMessagingSenderId,
+    projectId: EnvKeys.firebaseAndroidProjectId,
+    storageBucket: EnvKeys.firebaseAndroidStorageBucket,
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyACGY-MUecqDK7b6BEH1w9ggw4QU7jljYM',
-    appId: '1:425690840012:ios:0dc834466750ea368b3b69',
-    messagingSenderId: '425690840012',
-    projectId: 'kagong-map',
-    storageBucket: 'kagong-map.firebasestorage.app',
-    androidClientId: '425690840012-dfrgn9b6rksor52gar3j4e82k78g3vb4.apps.googleusercontent.com',
-    iosClientId: '425690840012-0jsbcqbritbn2avo2ji33pnpemo1c031.apps.googleusercontent.com',
-    iosBundleId: 'com.yjh.kagong.kagongMap',
+    apiKey: EnvKeys.firebaseIosApiKey,
+    appId: EnvKeys.firebaseIosAppId,
+    messagingSenderId: EnvKeys.firebaseIosMessagingSenderId,
+    projectId: EnvKeys.firebaseIosProjectId,
+    storageBucket: EnvKeys.firebaseIosStorageBucket,
+    androidClientId: EnvKeys.firebaseIosAndroidClientId,
+    iosClientId: EnvKeys.firebaseIosIosClientId,
+    iosBundleId: EnvKeys.firebaseIosBundleId,
   );
-
 }

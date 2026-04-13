@@ -3,17 +3,13 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'core/config/env_keys.dart';
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
+/// Prod [FirebaseOptions] — all values injected via `--dart-define-from-file`.
 ///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
+/// Since `--dart-define-from-file` injects environment-specific values at
+/// compile time, both Dev and Prod classes read from the same [EnvKeys].
+/// The actual values differ based on which `.env.{dev|prod}` file is supplied.
 class ProdFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -47,30 +43,29 @@ class ProdFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDxpruFN46ANBedqqPzJO27BGFB5v083yk',
-    appId: '1:467044849667:web:5731e68a7976160dc61636',
-    messagingSenderId: '467044849667',
-    projectId: 'kagong-release',
-    authDomain: 'kagong-release.firebaseapp.com',
-    storageBucket: 'kagong-release.firebasestorage.app',
-    measurementId: 'G-G07V55MFVN',
+    apiKey: EnvKeys.firebaseWebApiKey,
+    appId: EnvKeys.firebaseWebAppId,
+    messagingSenderId: EnvKeys.firebaseWebMessagingSenderId,
+    projectId: EnvKeys.firebaseWebProjectId,
+    authDomain: EnvKeys.firebaseWebAuthDomain,
+    storageBucket: EnvKeys.firebaseWebStorageBucket,
+    measurementId: EnvKeys.firebaseWebMeasurementId,
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBnzo55CNrkLn-j29VLpFWSPaLPlKHuzIc',
-    appId: '1:467044849667:android:900bba6acd06819ac61636',
-    messagingSenderId: '467044849667',
-    projectId: 'kagong-release',
-    storageBucket: 'kagong-release.firebasestorage.app',
+    apiKey: EnvKeys.firebaseAndroidApiKey,
+    appId: EnvKeys.firebaseAndroidAppId,
+    messagingSenderId: EnvKeys.firebaseAndroidMessagingSenderId,
+    projectId: EnvKeys.firebaseAndroidProjectId,
+    storageBucket: EnvKeys.firebaseAndroidStorageBucket,
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDoNc22hJ7JNda2BM6Df0FQrPZTG7kUW3I',
-    appId: '1:467044849667:ios:53e6ad47bd24267ac61636',
-    messagingSenderId: '467044849667',
-    projectId: 'kagong-release',
-    storageBucket: 'kagong-release.firebasestorage.app',
-    iosBundleId: 'com.yjh.kagong.kagongMap',
+    apiKey: EnvKeys.firebaseIosApiKey,
+    appId: EnvKeys.firebaseIosAppId,
+    messagingSenderId: EnvKeys.firebaseIosMessagingSenderId,
+    projectId: EnvKeys.firebaseIosProjectId,
+    storageBucket: EnvKeys.firebaseIosStorageBucket,
+    iosBundleId: EnvKeys.firebaseIosBundleId,
   );
-
 }

@@ -8,7 +8,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kagong_map/core/services/kakao_search_service.dart';
 import 'package:kagong_map/core/theme/app_colors.dart';
-import 'package:kagong_map/features/auth/providers/auth_provider.dart';
 import 'package:kagong_map/features/cafe/domain/models/cafe_place_model.dart';
 import 'package:kagong_map/features/cafe/presentation/widgets/cafe_detail_bottom_sheet.dart';
 import 'package:kagong_map/features/cafe/providers/cafe_search_provider.dart';
@@ -201,11 +200,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  /// 로그인 상태에 따라 로그인/로그아웃 버튼을 표시
-  Widget _buildAuthButton() {
-    final authState = ref.watch(authStateProvider);
-    final isLoggedIn = authState.value != null;
-
+  /// 마이페이지 버튼
+  Widget _buildMyPageButton() {
     return Container(
       height: 48,
       width: 48,
@@ -221,18 +217,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ],
       ),
       child: IconButton(
-        onPressed: () {
-          if (isLoggedIn) {
-            ref.read(authControllerProvider.notifier).signOut();
-          } else {
-            context.push('/login');
-          }
-        },
-        icon: Icon(
-          isLoggedIn ? Icons.logout : Icons.login,
-          color: AppColors.primary,
-        ),
-        tooltip: isLoggedIn ? '로그아웃' : '로그인',
+        onPressed: () => context.push('/mypage'),
+        icon: const Icon(Icons.person, color: AppColors.primary),
+        tooltip: '마이페이지',
       ),
     );
   }
@@ -331,7 +318,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _buildAuthButton(),
+                  _buildMyPageButton(),
                 ],
               ),
             ),

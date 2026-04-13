@@ -17,4 +17,7 @@ abstract class AuthRepository {
     required bool location,
     required bool marketing,
   });
+
+  /// 회원 탈퇴: Firestore 데이터 및 Firebase Auth 계정 삭제
+  Future<void> deleteAccount();
 }
