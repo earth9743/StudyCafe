@@ -155,6 +155,24 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<bool> isNicknameAvailable(String nickname) async {
+    final query = await _firestore
+        .collection(FirestorePaths.users)
+        .where('nickname', isEqualTo: nickname)
+        .limit(1)
+        .get();
+    return query.docs.isEmpty;
+  }
+
+  @override
+  Future<void> saveNickname({required String uid, required String nickname}) async {
+    await _firestore.collection(FirestorePaths.users).doc(uid).update({
+      'nickname': nickname,
+      'updatedAt': Timestamp.now(),
+    });
+  }
+
+  @override
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -167,6 +185,9 @@ class AuthRepositoryImpl implements AuthRepository {
     final callable = FirebaseFunctions.instance.httpsCallable('deleteAccount');
     await callable.call();
     debugPrint('[AuthRepo] Cloud Function deleteAccount 완료');
+
+    // 로컬 Firebase Auth 세션 정리 (서버에서 계정 삭제 후 클라이언트도 로그아웃)
+    await _auth.signOut();
 
     // 소셜 로그인 세션 정리
     try {

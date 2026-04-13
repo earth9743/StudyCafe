@@ -642,7 +642,14 @@ class CafeDetailBottomSheet extends ConsumerWidget {
                               : AppColors.secondaryDark,
                         )),
                 const SizedBox(width: 8),
-                Text(review.userName, style: AppTextStyles.caption),
+                Text(
+                  review.userName,
+                  style: AppTextStyles.caption.copyWith(
+                    color: review.userName == '탈퇴한 사용자'
+                        ? AppColors.textHint
+                        : null,
+                  ),
+                ),
                 const Spacer(),
                 Text(dateStr, style: AppTextStyles.caption),
               ],
@@ -791,6 +798,9 @@ class CafeDetailBottomSheet extends ConsumerWidget {
                               review.userName,
                               style: AppTextStyles.labelMedium.copyWith(
                                 fontWeight: FontWeight.w600,
+                                color: review.userName == '탈퇴한 사용자'
+                                    ? AppColors.textHint
+                                    : null,
                               ),
                             ),
                             Text(dateStr, style: AppTextStyles.caption),

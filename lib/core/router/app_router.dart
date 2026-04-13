@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kagong_map/features/auth/presentation/screens/login_screen.dart';
 import 'package:kagong_map/features/auth/presentation/screens/agreement_screen.dart';
+import 'package:kagong_map/features/auth/presentation/screens/nickname_screen.dart';
 import 'package:kagong_map/features/map/presentation/screens/map_screen.dart';
 import 'package:kagong_map/features/profile/presentation/screens/my_page_screen.dart';
 import 'package:kagong_map/features/splash/presentation/screens/splash_screen.dart';
@@ -62,6 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/agreement',
         builder: (context, state) => const AgreementScreen(),
+      ),
+      GoRoute(
+        path: '/nickname',
+        builder: (context, state) => const NicknameScreen(),
       ),
       GoRoute(
         path: '/',

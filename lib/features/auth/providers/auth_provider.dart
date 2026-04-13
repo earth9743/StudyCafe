@@ -106,4 +106,20 @@ class AuthController extends Notifier<AsyncValue<void>> {
       );
     });
   }
+
+  /// 닉네임 저장
+  Future<void> saveNickname(String nickname) async {
+    state = const AsyncValue.loading();
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final user = authRepo.currentUser;
+      if (user == null) throw Exception('로그인이 필요합니다.');
+      await authRepo.saveNickname(uid: user.uid, nickname: nickname);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      debugPrint('[AuthController] 닉네임 저장 에러: $e');
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }

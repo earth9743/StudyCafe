@@ -45,12 +45,18 @@ class MyPageScreen extends ConsumerWidget {
   ) {
     final user = ref.watch(authStateProvider).value!;
     final myReviews = ref.watch(myReviewsProvider);
+    final profile = ref.watch(userProfileProvider);
+    final displayName = profile.when(
+      data: (p) => p?.nickname ?? user.displayName ?? '사용자',
+      loading: () => user.displayName ?? '사용자',
+      error: (_, __) => user.displayName ?? '사용자',
+    );
 
     return SingleChildScrollView(
       child: Column(
         children: [
           // 프로필 섹션
-          _buildProfileSection(user.displayName ?? '사용자', user.email ?? ''),
+          _buildProfileSection(displayName, user.email ?? ''),
           const SizedBox(height: 8),
 
           // 내가 남긴 리뷰 섹션
@@ -178,225 +184,43 @@ class MyPageScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.rate_review_outlined,
-                  size: 20, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text('내가 남긴 리뷰', style: AppTextStyles.labelLarge),
-            ],
-          ),
-          const SizedBox(height: 12),
-          myReviews.when(
-            data: (reviews) {
-              if (reviews.isEmpty) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.edit_note,
-                          size: 36, color: AppColors.textHint),
-                      const SizedBox(height: 8),
-                      Text(
-                        '아직 작성한 리뷰가 없습니다',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return Column(
-                children: [
-                  // 리뷰 개수 표시
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '총 ${reviews.length}개',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...reviews.map((review) => _buildMyReviewItem(review)),
-                ],
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const _MyReviewListScreen(),
+                ),
               );
             },
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.primary,
-                  ),
+            child: Row(
+              children: [
+                const Icon(Icons.rate_review_outlined,
+                    size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('내가 남긴 리뷰', style: AppTextStyles.labelLarge),
                 ),
-              ),
-            ),
-            error: (e, _) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  Text(
-                    '리뷰를 불러오지 못했습니다',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      // ignore: unused_result
-                      ref.refresh(myReviewsProvider);
-                    },
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('다시 시도'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      textStyle: AppTextStyles.labelSmall,
-                    ),
-                  ),
-                ],
-              ),
+                myReviews.whenOrNull(
+                      data: (reviews) => reviews.isNotEmpty
+                          ? Text(
+                              '${reviews.length}개',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            )
+                          : null,
+                    ) ??
+                    const SizedBox.shrink(),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.textHint,
+                ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  /// 내 리뷰 아이템
-  Widget _buildMyReviewItem(ReviewModel review) {
-    final dateStr = DateFormat('yyyy.MM.dd').format(review.createdAt);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 카페 이름 + 날짜
-          Row(
-            children: [
-              const Icon(Icons.local_cafe, size: 16, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  review.cafeId.split('_').first,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(dateStr, style: AppTextStyles.caption),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // 별점
-          Row(
-            children: [
-              ...List.generate(
-                5,
-                (i) => Icon(
-                  i < review.rating ? Icons.star : Icons.star_border,
-                  size: 16,
-                  color: i < review.rating
-                      ? const Color(0xFFFFB800)
-                      : AppColors.secondaryDark,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // 태그
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              _buildTag('혼잡도', review.crowdLevel.label),
-              _buildTag('콘센트', review.outletLevel.label),
-              _buildTag('소음', review.noiseLevel.label),
-            ],
-          ),
-
-          // 리뷰 내용
-          if (review.content.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              review.content,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-
-          // 사진
-          if (review.photoUrls.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 56,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: review.photoUrls.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (_, index) => ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    review.photoUrls[index],
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
-                      width: 56,
-                      height: 56,
-                      color: AppColors.secondary,
-                      child: const Icon(
-                        Icons.broken_image_outlined,
-                        color: AppColors.textHint,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag(String category, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        '$category: $value',
-        style: AppTextStyles.caption.copyWith(
-          color: AppColors.primary,
-          fontSize: 10,
-        ),
       ),
     );
   }
@@ -420,22 +244,14 @@ class MyPageScreen extends ConsumerWidget {
             titleColor: AppColors.error,
             onTap: () => _showLogoutDialog(context, ref),
           ),
-          const Divider(height: 1, color: AppColors.divider),
-          const SizedBox(height: 24),
-          // 회원 탈퇴 버튼
-          Center(
-            child: TextButton(
-              onPressed: () => _showDeleteAccountDialog(context, ref),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-                textStyle: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              child: const Text('회원 탈퇴'),
-            ),
+          const Divider(height: 1, indent: 56, color: AppColors.divider),
+          _buildMenuItem(
+            icon: Icons.person_remove_outlined,
+            title: '회원 탈퇴',
+            titleColor: AppColors.error,
+            onTap: () => _showDeleteAccountDialog(context, ref),
           ),
-          const SizedBox(height: 16),
+          const Divider(height: 1, color: AppColors.divider),
         ],
       ),
     );
@@ -532,17 +348,54 @@ class MyPageScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        title: const Text(
-          '회원 탈퇴',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text(
+              '회원 탈퇴',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
-        content: const Text(
-          '정말 탈퇴하시겠습니까?\n모든 데이터가 삭제되며 복구할 수 없습니다.\n\n보안을 위해 본인 확인 화면이 나타날 수 있습니다.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '정말 탈퇴하시겠습니까?',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              '탈퇴 시 다음 데이터가 모두 삭제됩니다:',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            SizedBox(height: 6),
+            Text(
+              '  \u2022  작성한 모든 리뷰\n'
+              '  \u2022  계정 정보 및 프로필\n'
+              '  \u2022  활동 기록',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
+            ),
+            SizedBox(height: 12),
+            Text(
+              '삭제된 데이터는 복구할 수 없습니다.',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -632,6 +485,206 @@ class MyPageScreen extends ConsumerWidget {
             applicationVersion: '1.0.0',
             applicationLegalese: '© 2026 카공지도. All rights reserved.',
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 내가 남긴 리뷰 전체 목록 화면
+class _MyReviewListScreen extends ConsumerWidget {
+  const _MyReviewListScreen();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final myReviews = ref.watch(myReviewsProvider);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('내가 남긴 리뷰'),
+        centerTitle: true,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.textOnPrimary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: myReviews.when(
+        data: (reviews) {
+          if (reviews.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.edit_note,
+                      size: 48, color: AppColors.textHint),
+                  const SizedBox(height: 12),
+                  Text(
+                    '아직 작성한 리뷰가 없습니다',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: reviews.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, index) =>
+                _buildReviewCard(reviews[index]),
+          );
+        },
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '리뷰를 불러오지 못했습니다',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => ref.refresh(myReviewsProvider),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('다시 시도'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(ReviewModel review) {
+    final dateStr = DateFormat('yyyy.MM.dd').format(review.createdAt);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 카페 이름 + 날짜
+          Row(
+            children: [
+              const Icon(Icons.local_cafe, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  review.cafeId.split('_').first,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(dateStr, style: AppTextStyles.caption),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // 별점
+          Row(
+            children: List.generate(
+              5,
+              (i) => Icon(
+                i < review.rating ? Icons.star : Icons.star_border,
+                size: 16,
+                color: i < review.rating
+                    ? const Color(0xFFFFB800)
+                    : AppColors.secondaryDark,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // 태그
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _buildTag('혼잡도', review.crowdLevel.label),
+              _buildTag('콘센트', review.outletLevel.label),
+              _buildTag('소음', review.noiseLevel.label),
+            ],
+          ),
+
+          // 리뷰 내용
+          if (review.content.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              review.content,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+
+          // 사진
+          if (review.photoUrls.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 56,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: review.photoUrls.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (_, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    review.photoUrls[index],
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => Container(
+                      width: 56,
+                      height: 56,
+                      color: AppColors.secondary,
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.textHint,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTag(String category, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$category: $value',
+        style: AppTextStyles.caption.copyWith(
+          color: AppColors.primary,
+          fontSize: 10,
         ),
       ),
     );

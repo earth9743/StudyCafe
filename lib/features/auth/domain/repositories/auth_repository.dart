@@ -18,6 +18,12 @@ abstract class AuthRepository {
     required bool marketing,
   });
 
+  /// 닉네임 중복 체크
+  Future<bool> isNicknameAvailable(String nickname);
+
+  /// 닉네임 저장
+  Future<void> saveNickname({required String uid, required String nickname});
+
   /// 회원 탈퇴: Firestore 데이터 및 Firebase Auth 계정 삭제
   Future<void> deleteAccount();
 }

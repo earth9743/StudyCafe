@@ -13,7 +13,7 @@ initializeApp();
  * requires-recent-login restriction.
  *
  * Processing order:
- *   1. Delete all reviews authored by the user (collectionGroup query)
+ *   1. Anonymize reviews (keep content, change userName to "탈퇴한 사용자")
  *   2. Delete the user document from 'users' collection
  *   3. Delete the Firebase Auth account via Admin SDK
  */
@@ -31,14 +31,13 @@ exports.deleteAccount = onCall(async (request) => {
   const auth = getAuth();
 
   try {
-    // 1. Delete all reviews written by this user (collectionGroup query)
+    // 1. Delete all reviews written by this user
     const reviewsSnapshot = await db
       .collectionGroup("reviews")
       .where("userId", "==", uid)
       .get();
 
     if (!reviewsSnapshot.empty) {
-      // Firestore batch limit is 500, so process in chunks
       const batchSize = 500;
       const docs = reviewsSnapshot.docs;
 

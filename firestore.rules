@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== users 컬렉션 =====
+    match /users/{userId} {
+      // 본인 문서 읽기 또는 닉네임 중복 체크 쿼리 허용
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      // 삭제는 Cloud Function (Admin SDK)에서 처리하므로 클라이언트 삭제 차단
+      allow delete: if false;
+    }
+
+    // ===== cafes 컬렉션 =====
+    match /cafes/{cafeId} {
+      // 로그인한 사용자는 카페 정보 읽기 가능
+      allow read: if request.auth != null;
+      // 카페 생성/수정은 로그인 사용자 허용
+      allow create, update: if request.auth != null;
+      allow delete: if false;
+
+      // ----- reviews 서브컬렉션 -----
+      match /reviews/{reviewId} {
+        // 로그인한 사용자는 리뷰 읽기 가능
+        allow read: if request.auth != null;
+        // 리뷰 작성: 로그인 + 본인 userId만
+        allow create: if request.auth != null
+                      && request.resource.data.userId == request.auth.uid;
+        // 리뷰 수정: 본인 리뷰만
+        allow update: if request.auth != null
+                      && resource.data.userId == request.auth.uid;
+        // 리뷰 삭제: 본인 리뷰만 (Cloud Function에서도 Admin SDK로 삭제)
+        allow delete: if request.auth != null
+                      && resource.data.userId == request.auth.uid;
+      }
+
+      // ----- crowd_logs 서브컬렉션 -----
+      match /crowd_logs/{logId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update, delete: if false;
+      }
+
+      // ----- outlet_reports 서브컬렉션 -----
+      match /outlet_reports/{reportId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update, delete: if false;
+      }
+
+      // ----- noise_reports 서브컬렉션 -----
+      match /noise_reports/{reportId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update, delete: if false;
+      }
+    }
+
+    // ===== cafe_requests 컬렉션 =====
+    match /cafe_requests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // ===== collectionGroup 쿼리 지원 =====
+    // collectionGroup('reviews')로 전체 리뷰를 userId로 조회할 때 필요
+    match /{path=**}/reviews/{reviewId} {
+      allow read: if request.auth != null;
+    }
+  }
+}

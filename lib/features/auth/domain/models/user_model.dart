@@ -7,6 +7,7 @@ class UserModel extends Equatable {
   final String uid;
   final String email;
   final String displayName;
+  final String? nickname;
   final String? photoUrl;
   final AuthProvider provider;
   final DateTime createdAt;
@@ -21,6 +22,7 @@ class UserModel extends Equatable {
     required this.uid,
     required this.email,
     required this.displayName,
+    this.nickname,
     this.photoUrl,
     required this.provider,
     required this.createdAt,
@@ -38,6 +40,7 @@ class UserModel extends Equatable {
       uid: data['uid'] ?? doc.id,
       email: data['email'] ?? '',
       displayName: data['displayName'] ?? '',
+      nickname: data['nickname'],
       photoUrl: data['photoUrl'],
       provider: AuthProvider.values.firstWhere(
         (e) => e.name == data['provider'],
@@ -58,6 +61,7 @@ class UserModel extends Equatable {
       'uid': uid,
       'email': email,
       'displayName': displayName,
+      'nickname': nickname,
       'photoUrl': photoUrl,
       'provider': provider.name,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -74,6 +78,7 @@ class UserModel extends Equatable {
     String? uid,
     String? email,
     String? displayName,
+    String? nickname,
     String? photoUrl,
     AuthProvider? provider,
     DateTime? createdAt,
@@ -88,6 +93,7 @@ class UserModel extends Equatable {
       uid: uid ?? this.uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
+      nickname: nickname ?? this.nickname,
       photoUrl: photoUrl ?? this.photoUrl,
       provider: provider ?? this.provider,
       createdAt: createdAt ?? this.createdAt,
@@ -101,5 +107,5 @@ class UserModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [uid, email, displayName, photoUrl, provider];
+  List<Object?> get props => [uid, email, displayName, nickname, photoUrl, provider];
 }

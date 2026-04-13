@@ -41,15 +41,33 @@ String? _getUserFriendlyMessage(String error) {
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
+  Future<void> _navigateAfterLogin(BuildContext context, WidgetRef ref) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final authRepo = ref.read(authRepositoryProvider);
+    final profile = await authRepo.getUserProfile(user.uid);
+
+    if (!context.mounted) return;
+
+    if (profile == null || !profile.agreedToTerms) {
+      context.go('/agreement');
+    } else if (profile.nickname == null || profile.nickname!.isEmpty) {
+      context.go('/nickname');
+    } else {
+      context.go('/');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
 
     ref.listen<AsyncValue<void>>(authControllerProvider, (prev, next) {
-      // 로그인 성공 시 지도 화면으로 이동
+      // 로그인 성공 시 유저 상태에 따라 분기
       if (prev is AsyncLoading && next is AsyncData && FirebaseAuth.instance.currentUser != null) {
-        context.go('/');
+        _navigateAfterLogin(context, ref);
         return;
       }
       if (next is AsyncError) {

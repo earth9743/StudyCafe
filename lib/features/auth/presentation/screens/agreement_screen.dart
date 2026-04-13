@@ -135,7 +135,7 @@ class _AgreementScreenState extends ConsumerState<AgreementScreen> {
                               marketing: _marketingAgreed,
                             );
                         if (context.mounted) {
-                          context.go('/');
+                          context.go('/nickname');
                         }
                       }
                     : null,

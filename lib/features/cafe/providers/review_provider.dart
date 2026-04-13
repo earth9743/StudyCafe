@@ -131,11 +131,21 @@ class ReviewSubmitNotifier extends Notifier<AsyncValue<void>> {
       );
       debugPrint('[ReviewSubmit] 이미지 업로드 완료 — URL 수: ${photoUrls.length}');
 
+      // Firestore에서 닉네임 조회
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final nickname = userDoc.data()?['nickname'] as String?;
+      final userName = (nickname != null && nickname.isNotEmpty)
+          ? nickname
+          : (user.displayName ?? '익명');
+
       final reviewData = ReviewModel(
         id: '',
         cafeId: cafeId,
         userId: user.uid,
-        userName: user.displayName ?? '익명',
+        userName: userName,
         rating: rating,
         crowdLevel: crowdLevel,
         outletLevel: outletLevel,
