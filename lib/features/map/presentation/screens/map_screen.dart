@@ -200,6 +200,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
+  /// 일반 장소(역, 건물 등) 선택 시 해당 위치로 카메라 이동
+  /// 카페가 아니므로 Bottom Sheet는 표시하지 않고,
+  /// onCameraIdle에서 자동으로 주변 카페를 로드한다.
+  Future<void> _selectLocation(CafePlaceModel place) async {
+    final currentQuery = ref.read(cafeSearchQueryProvider);
+    if (currentQuery.trim().isNotEmpty) {
+      ref.read(searchHistoryProvider.notifier).addQuery(currentQuery.trim());
+    }
+    _hideSearchSheet();
+
+    final target = NLatLng(place.lat, place.lng);
+
+    await _mapController?.updateCamera(
+      NCameraUpdate.scrollAndZoomTo(target: target, zoom: 15),
+    );
+  }
+
   /// 마이페이지 버튼
   Widget _buildMyPageButton() {
     return Container(
@@ -306,7 +323,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             Icon(Icons.search, color: AppColors.textSecondary),
                             SizedBox(width: 8),
                             Text(
-                              '카페 이름을 입력해주세요',
+                              '카페 또는 장소를 검색해주세요',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 16,
@@ -353,7 +370,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
   Widget _buildSearchPanel() {
-    final searchResults = ref.watch(cafeSearchResultsProvider);
+    final cafeResults = ref.watch(cafeSearchResultsProvider);
+    final placeResults = ref.watch(placeSearchResultsProvider);
 
     return Container(
       color: Colors.white,
@@ -367,8 +385,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   Expanded(
                     // Theme + CupertinoTheme 이중 래핑:
                     // iOS 한글 IME 조합 시 파란 밑줄 방지
-                    // colorScheme.primary를 textPrimary로 덮어써야
-                    // 조합 중 밑줄이 navy가 아닌 검정으로 표시됨
                     child: Theme(
                       data: Theme.of(context).copyWith(
                         colorScheme: Theme.of(context).colorScheme.copyWith(
@@ -390,7 +406,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         autocorrect: false,
                         enableSuggestions: false,
                         stylusHandwritingEnabled: false,
-                        // Scan Text (iOS Live Text) 제거
                         contextMenuBuilder: (context, editableTextState) {
                           final buttonItems =
                               editableTextState.contextMenuButtonItems;
@@ -408,7 +423,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           fontSize: 16,
                         ),
                         decoration: InputDecoration(
-                          hintText: '카페 이름을 입력해주세요 (예: 스타벅스)',
+                          hintText: '카페 또는 장소를 검색해주세요',
                           prefixIcon: const Icon(
                               Icons.search, color: AppColors.primary),
                           border: OutlineInputBorder(
@@ -444,7 +459,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                               const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         onChanged: (value) {
-                          setState(() {}); // X 버튼 표시/숨김 갱신
+                          setState(() {});
                           ref
                               .read(cafeSearchQueryProvider.notifier)
                               .setQueryDebounced(value);
@@ -475,66 +490,153 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
             const Divider(height: 1),
             Expanded(
-              child: searchResults.when(
-                data: (places) {
-                  if (places.isEmpty) {
-                    final query = ref.read(cafeSearchQueryProvider);
-                    if (query.isEmpty) {
-                      return _buildSearchHistoryList();
-                    }
-                    return const Center(
-                      child: Text(
-                        '검색 결과가 없습니다',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: places.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final place = places[index];
-                      return ListTile(
-                        leading: const Icon(
-                          Icons.local_cafe,
-                          color: AppColors.primary,
-                        ),
-                        title: Text(
-                          place.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        subtitle: Text(
-                          place.roadAddress.isNotEmpty
-                              ? place.roadAddress
-                              : place.address,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                        onTap: () => _selectPlace(place),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
-                error: (e, _) => Center(
-                  child: Text(
-                    '검색 오류: $e',
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  ),
-                ),
-              ),
+              child: _buildSearchResults(cafeResults, placeResults),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSearchResults(
+    AsyncValue<List<CafePlaceModel>> cafeResults,
+    AsyncValue<List<CafePlaceModel>> placeResults,
+  ) {
+    final query = ref.read(cafeSearchQueryProvider);
+
+    // 검색어 비어있으면 검색 기록 표시
+    if (query.isEmpty) {
+      return _buildSearchHistoryList();
+    }
+
+    // 둘 다 로딩 중
+    if (cafeResults is AsyncLoading && placeResults is AsyncLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    final cafes = cafeResults.when(
+      data: (d) => d,
+      loading: () => <CafePlaceModel>[],
+      error: (_, _) => <CafePlaceModel>[],
+    );
+    final places = placeResults.when(
+      data: (d) => d,
+      loading: () => <CafePlaceModel>[],
+      error: (_, _) => <CafePlaceModel>[],
+    );
+
+    // 둘 다 비어있음
+    if (cafes.isEmpty && places.isEmpty) {
+      if (cafeResults is AsyncLoading || placeResults is AsyncLoading) {
+        return const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        );
+      }
+      return const Center(
+        child: Text(
+          '검색 결과가 없습니다',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        // 장소 결과 (역, 건물 등)
+        if (places.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              '장소',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ...places.map((place) => Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.location_on,
+                      color: AppColors.primary,
+                    ),
+                    title: Text(
+                      place.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      place.roadAddress.isNotEmpty
+                          ? place.roadAddress
+                          : place.address,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    trailing: const Text(
+                      '주변 카페 보기',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    onTap: () => _selectLocation(place),
+                  ),
+                  const Divider(height: 1),
+                ],
+              )),
+        ],
+        // 카페 결과
+        if (cafes.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              '카페',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ...cafes.map((place) => Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.local_cafe,
+                      color: AppColors.primary,
+                    ),
+                    title: Text(
+                      place.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      place.roadAddress.isNotEmpty
+                          ? place.roadAddress
+                          : place.address,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    onTap: () => _selectPlace(place),
+                  ),
+                  const Divider(height: 1),
+                ],
+              )),
+        ],
+      ],
     );
   }
 

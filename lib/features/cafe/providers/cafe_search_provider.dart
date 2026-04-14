@@ -161,3 +161,44 @@ final cafeSearchResultsProvider =
 
   return merged;
 });
+
+/// 일반 장소 검색 (카페 카테고리 필터 없이)
+///
+/// "부천역", "강남역" 등 카페가 아닌 장소를 검색할 때 사용한다.
+/// 카페 검색 결과와 중복되지 않는 장소만 반환한다.
+final placeSearchResultsProvider =
+    FutureProvider.autoDispose<List<CafePlaceModel>>((ref) async {
+  final query = ref.watch(cafeSearchQueryProvider);
+  if (query.trim().length < 2) return [];
+
+  final service = ref.watch(kakaoSearchServiceProvider);
+
+  Position? position;
+  try {
+    position = await Geolocator.getLastKnownPosition() ??
+        await Geolocator.getCurrentPosition();
+  } catch (_) {}
+
+  List<CafePlaceModel> places;
+  if (position != null) {
+    places = await service.searchPlaces(
+      query,
+      x: position.longitude,
+      y: position.latitude,
+      radius: 20000,
+      sort: 'accuracy',
+      size: 5,
+    );
+  } else {
+    places = await service.searchPlaces(
+      query,
+      sort: 'accuracy',
+      size: 5,
+    );
+  }
+
+  // 카페 카테고리(CE7) 결과 제외 — 카페는 cafeSearchResultsProvider에서 처리
+  return places
+      .where((p) => !p.category.contains('카페'))
+      .toList();
+});
