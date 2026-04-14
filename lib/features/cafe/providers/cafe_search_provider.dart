@@ -164,8 +164,11 @@ final cafeSearchResultsProvider =
 
 /// 일반 장소 검색 (카페 카테고리 필터 없이)
 ///
-/// "부천역", "강남역" 등 카페가 아닌 장소를 검색할 때 사용한다.
-/// 카페 검색 결과와 중복되지 않는 장소만 반환한다.
+/// "부천역", "강남역"(POI) 등과 "홍제동", "역삼동"(행정구역) 모두 지원.
+/// - 키워드 검색: POI(상호/건물/시설)
+/// - 주소 검색: 행정동/법정동/도로명/지번 — 키워드 검색으로 잡히지 않는 행정구역명 대응
+///
+/// 두 API를 병렬 호출 후 결과를 병합하며, 카페 검색 결과와 중복되는 카페는 제외한다.
 final placeSearchResultsProvider =
     FutureProvider.autoDispose<List<CafePlaceModel>>((ref) async {
   final query = ref.watch(cafeSearchQueryProvider);
@@ -179,26 +182,51 @@ final placeSearchResultsProvider =
         await Geolocator.getCurrentPosition();
   } catch (_) {}
 
-  List<CafePlaceModel> places;
-  if (position != null) {
-    places = await service.searchPlaces(
-      query,
-      x: position.longitude,
-      y: position.latitude,
-      radius: 20000,
-      sort: 'accuracy',
-      size: 5,
-    );
-  } else {
-    places = await service.searchPlaces(
-      query,
-      sort: 'accuracy',
-      size: 5,
-    );
-  }
+  // 키워드 검색 + 주소 검색을 병렬 호출
+  final keywordFuture = position != null
+      ? service.searchPlaces(
+          query,
+          x: position.longitude,
+          y: position.latitude,
+          radius: 20000,
+          sort: 'accuracy',
+          size: 5,
+        )
+      : service.searchPlaces(
+          query,
+          sort: 'accuracy',
+          size: 5,
+        );
+
+  final addressFuture = service.searchAddress(query, size: 3);
+
+  // 두 검색이 모두 실패해도 앱이 죽지 않도록 각각 try/catch
+  List<CafePlaceModel> keywordResults = [];
+  List<CafePlaceModel> addressResults = [];
+
+  final results = await Future.wait([
+    keywordFuture.catchError((_) => <CafePlaceModel>[]),
+    addressFuture.catchError((_) => <CafePlaceModel>[]),
+  ]);
+  keywordResults = results[0];
+  addressResults = results[1];
 
   // 카페 카테고리(CE7) 결과 제외 — 카페는 cafeSearchResultsProvider에서 처리
-  return places
-      .where((p) => !p.category.contains('카페'))
-      .toList();
+  final filteredKeyword =
+      keywordResults.where((p) => !p.category.contains('카페')).toList();
+
+  // 주소 검색 결과를 먼저(행정구역이 사용자 의도에 가까움), 키워드 POI 결과를 뒤에 배치
+  // 같은 좌표(소수점 5자리 기준) 중복 제거
+  final seen = <String>{};
+  final merged = <CafePlaceModel>[];
+
+  for (final p in [...addressResults, ...filteredKeyword]) {
+    final key =
+        '${p.lat.toStringAsFixed(5)}|${p.lng.toStringAsFixed(5)}';
+    if (seen.add(key)) {
+      merged.add(p);
+    }
+  }
+
+  return merged;
 });

@@ -107,6 +107,78 @@ class KakaoSearchService {
     );
   }
 
+  /// 카카오 주소 검색 API를 사용하여 행정동/법정동/지번/도로명 등을 좌표로 변환한다.
+  ///
+  /// 키워드 검색(`/v2/local/search/keyword.json`)은 POI(상호/건물) 위주로 동작해
+  /// "홍제동", "역삼동" 같은 행정구역명은 잘 잡히지 않는다.
+  /// 주소 검색 API (`/v2/local/search/address.json`)는 행정구역명을 인식하여
+  /// 해당 지역의 좌표와 주소 정보를 반환한다.
+  Future<List<CafePlaceModel>> searchAddress(
+    String query, {
+    int size = 5,
+  }) async {
+    try {
+      debugPrint('[KakaoSearch] 주소 검색 시작: $query');
+
+      final response = await _dio.get(
+        '/v2/local/search/address.json',
+        queryParameters: {
+          'query': query,
+          'size': size,
+          'page': 1,
+        },
+      );
+
+      final List<dynamic> documents = response.data['documents'] ?? [];
+      debugPrint('[KakaoSearch] 주소 검색 결과: ${documents.length}개');
+
+      return documents.map((doc) {
+        final map = doc as Map<String, dynamic>;
+        // 행정동 이름 우선 사용, 없으면 법정동, 그것도 없으면 address_name
+        final addressName = map['address_name'] as String? ?? '';
+        final roadAddress =
+            map['road_address'] as Map<String, dynamic>?;
+        final address = map['address'] as Map<String, dynamic>?;
+
+        // 표시용 이름: 행정동 이름이 있으면 그것을 우선, 없으면 전체 주소
+        String displayName;
+        if (address != null &&
+            (address['region_3depth_h_name'] as String?)?.isNotEmpty ==
+                true) {
+          displayName = address['region_3depth_h_name'] as String;
+        } else if (address != null &&
+            (address['region_3depth_name'] as String?)?.isNotEmpty == true) {
+          displayName = address['region_3depth_name'] as String;
+        } else {
+          displayName = addressName;
+        }
+
+        // 쿼리가 역/건물 등 구체적인 이름이면 addressName을 그대로 사용
+        if (displayName.isEmpty ||
+            (!query.contains(displayName) && !displayName.contains(query))) {
+          displayName = query;
+        }
+
+        return CafePlaceModel(
+          name: displayName,
+          roadAddress: (roadAddress?['address_name'] as String?) ?? '',
+          address: addressName,
+          category: '행정구역',
+          phone: '',
+          lat: double.tryParse(map['y']?.toString() ?? '') ?? 0.0,
+          lng: double.tryParse(map['x']?.toString() ?? '') ?? 0.0,
+        );
+      }).where((p) => p.lat != 0.0 && p.lng != 0.0).toList();
+    } on DioException catch (e) {
+      debugPrint('[KakaoSearch] 주소 검색 오류: ${e.response?.statusCode}');
+      debugPrint('[KakaoSearch] 응답 본문: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      debugPrint('[KakaoSearch] 주소 검색 일반 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 현재 위치 기반으로 주변 카페를 카테고리 검색한다 (키워드 없이).
   ///
   /// 카카오 카테고리 검색 API (`/v2/local/search/category.json`)를 사용하여
